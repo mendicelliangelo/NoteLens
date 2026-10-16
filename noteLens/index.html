@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OCR Pentagrammi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <p class="kicker">Riconoscimento ottico della musica</p>
+    <h1>OCR Pentagrammi</h1>
+    <svg class="staff-rule" viewBox="0 0 220 32" role="img" aria-label="Un pentagramma con una nota">
+      <g stroke="currentColor" stroke-opacity="0.45" stroke-width="1.2">
+        <line x1="0" y1="6" x2="220" y2="6" /><line x1="0" y1="12" x2="220" y2="12" /><line x1="0" y1="18" x2="220" y2="18" />
+        <line x1="0" y1="24" x2="220" y2="24" /><line x1="0" y1="30" x2="220" y2="30" />
+      </g>
+      <g fill="var(--accent)" stroke="var(--accent)">
+        <ellipse cx="150" cy="21" rx="7" ry="5" transform="rotate(-20 150 21)" stroke="none" />
+        <line x1="156.5" y1="19.5" x2="156.5" y2="-4" stroke-width="1.6" />
+      </g>
+    </svg>
+    <p class="lede">Carica la scansione o una foto frontale di uno spartito. Righi, note, durate, punti e stanghette vengono letti nel browser: l'immagine non lascia il tuo dispositivo.</p>
+  </header>
+
+  <section class="sec" aria-labelledby="h-img">
+    <h2 id="h-img">Immagine</h2>
+    <div class="drop" id="drop">
+      <div class="row">
+        <button class="btn primary" id="btnPick" type="button">Scegli un'immagine</button>
+        <input id="file" type="file" accept="image/*" hidden>
+        <button class="btn" id="btnSample" type="button">Spartito di esempio</button>
+      </div>
+      <p class="hint">Puoi anche trascinare qui un file JPG, PNG o WebP.</p>
+      <p class="hint" id="srcInfo"></p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-set">
+    <h2 id="h-set">Impostazioni di lettura</h2>
+    <div class="fields">
+      <div class="field">
+        <label class="lab" for="clef">Chiave di tutti i righi</label>
+        <select id="clef"><option value="treble">Sol (violino)</option><option value="bass">Fa (basso)</option><option value="alto">Do contralto (3ª riga)</option><option value="tenor">Do tenore (4ª riga)</option></select>
+      </div>
+      <div class="field">
+        <label class="lab" for="key">Armatura di chiave</label>
+        <select id="key"></select>
+      </div>
+      <div class="field">
+        <label class="lab" for="meter">Tempo</label>
+        <select id="meter">
+          <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
+          <option value="6/8">6/8</option><option value="2/2">2/2</option><option value="3/8">3/8</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lab" for="bpm"><span>Velocità</span><output id="bpmOut" for="bpm"></output></label>
+        <input id="bpm" type="range" min="40" max="200" step="1" value="90">
+      </div>
+      <div class="field">
+        <label class="lab" for="skip"><span>Salta a sinistra</span><output id="skipOut" for="skip"></output></label>
+        <input id="skip" type="range" min="0" max="14" step="0.5" value="1">
+        <span class="help">Chiave, armatura e indicazione di tempo non vengono lette. L'area grigia sull'immagine viene ignorata.</span>
+      </div>
+      <div class="field">
+        <label class="lab" for="thr"><span>Sensibilità</span><output id="thrOut" for="thr"></output></label>
+        <input id="thr" type="range" min="0.6" max="1.4" step="0.05" value="1">
+        <span class="help">Aumenta se i tratti sono sbiaditi, riduci se ci sono macchie.</span>
+      </div>
+      <div class="field">
+        <span class="lab">Inclinazione</span>
+        <label class="check"><input id="deskew" type="checkbox" checked> Raddrizza se inclinata</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-ver">
+    <h2 id="h-ver">Verifica sull'immagine</h2>
+    <p class="status" id="status" role="status" aria-live="polite">Avvio…</p>
+    <div class="toolbar">
+      <div class="zoomwrap">
+        <span>Zoom</span>
+        <input id="zoom" type="range" min="20" max="250" step="5" value="100" aria-label="Zoom dell'immagine">
+        <output id="zoomOut" for="zoom"></output>
+      </div>
+      <button class="btn small" id="fit" type="button">Adatta alla larghezza</button>
+    </div>
+    <div class="stage" id="stage" tabindex="0" aria-label="Spartito con le note riconosciute"><canvas id="cv" width="10" height="10"></canvas></div>
+    <div class="legend" aria-hidden="true">
+      <span><i class="lg-note"></i>nota riconosciuta</span>
+      <span><i class="lg-low"></i>nota incerta</span>
+      <span><i class="lg-bar"></i>stanghetta</span>
+      <span><i class="lg-skip"></i>zona ignorata</span>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-note">
+    <h2 id="h-note">Note riconosciute</h2>
+    <div class="summary-row">
+      <p class="summary" id="summary"></p>
+      <button class="btn small" id="restore" type="button" hidden></button>
+    </div>
+    <div class="fields" id="staffClefs" hidden></div>
+    <div class="score" id="list"></div>
+    <div class="editor" id="editor" hidden>
+      <div class="ed-head"><span class="ed-name" id="edName"></span><span class="ed-meta" id="edMeta"></span></div>
+      <div class="ed-grid">
+        <div class="field">
+          <span class="lab">Altezza</span>
+          <div class="seg">
+            <button id="edDown" type="button">Più grave</button>
+            <button id="edUp" type="button">Più acuta</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab" for="edType">Durata</label>
+          <select id="edType"></select>
+        </div>
+        <div class="field">
+          <span class="lab">Puntata</span>
+          <label class="check"><input id="edDot" type="checkbox"> Aumenta di metà</label>
+        </div>
+        <div class="field">
+          <span class="lab">Alterazione</span>
+          <div class="seg" id="edAcc">
+            <button type="button" data-acc="auto" aria-label="Segui l'armatura">Auto</button>
+            <button type="button" data-acc="#" aria-label="Diesis">♯</button>
+            <button type="button" data-acc="b" aria-label="Bemolle">♭</button>
+            <button type="button" data-acc="n" aria-label="Bequadro">♮</button>
+          </div>
+        </div>
+        <div class="field"><button class="btn danger" id="edDel" type="button">Elimina nota</button></div>
+      </div>
+      <p class="ed-tip">La durata vale per tutte le note dell'accordo. Con una nota selezionata, le frecce su e giù ne cambiano l'altezza e Canc la elimina.</p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-play">
+    <h2 id="h-play">Ascolta</h2>
+    <div class="player">
+      <button class="btn primary toggle" id="play" type="button" aria-pressed="false">Ascolta</button>
+      <span class="hint" id="playInfo"></span>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-exp">
+    <h2 id="h-exp">Esporta</h2>
+    <div class="tabs" role="tablist" aria-label="Formato di esportazione">
+      <button class="btn small" id="tabXml" role="tab" type="button" aria-selected="true">MusicXML</button>
+      <button class="btn small" id="tabNames" role="tab" type="button" aria-selected="false">Nomi delle note</button>
+      <button class="btn small" id="copy" type="button">Copia il testo</button>
+    </div>
+    <textarea id="out" readonly spellcheck="false" aria-label="Testo esportato"></textarea>
+    <p class="hint">Salva il testo MusicXML in un file con estensione .musicxml e aprilo con MuseScore, Finale o Dorico.</p>
+    <div class="player">
+      <button class="btn primary" id="dlMidi" type="button">Scarica MIDI</button>
+      <span class="hint" id="midiInfo">File .mid con le note lette, la velocità e il tempo scelti sopra.</span>
+    </div>
+  </section>
+
+  <section class="limits" aria-label="Limiti attuali">
+    <p><strong>Cosa legge:</strong> righi anche curvi o inclinati (come in una foto della pagina), teste piene e vuote, gambi, travi, bandierine fino alla biscroma, punti di valore, stanghette e linee addizionali. Le chiavi di Sol, Fa e Do si scelgono per ogni rigo.</p>
+    <p><strong>Cosa non legge ancora:</strong> pause, alterazioni scritte accanto alle note, legature, più voci sullo stesso rigo e righi a due chiavi. Le foto con ombre, scritte a matita o righi molto piccoli danno risultati parziali: controlla i riquadri e correggi con l'editor.</p>
+  </section>
+</div>
+
+<script src="music.js"></script>
+<script src="ocr.js"></script>
+<script src="sample.js"></script>
+<script src="viewer.js"></script>
+<script src="player.js"></script>
+<script src="exporter.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
