@@ -1,0 +1,2057 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OCR Pentagrammi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: una colonna di lavoro, dall'immagine al testo esportato; i riquadri blu sulla scansione sono il centro della pagina. */
+  :root {
+    --bg: #EDF0F3; --panel: #FFFFFF; --soft: #E3E8ED; --ink: #141922; --muted: #556170; --line: #C9D1D9;
+    --accent: #1D5FD1; --accent-ink: #FFFFFF; --accent-soft: #DCE7FA;
+    --mark: #C2410C; --mark-soft: #FBE3D6; --mark-ink: #FFFFFF;
+    --good: #1B7F4B; --warn: #9A5B0A; --danger: #B42318;
+    --paper: #FFFFFF;
+    --cv-accent: #1D5FD1; --cv-bar: #1B7F4B;
+    --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+    --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F1319; --panel: #171C24; --soft: #1E2530; --ink: #E7EBF0; --muted: #98A4B2; --line: #2D3744;
+      --accent: #7AA7FF; --accent-ink: #0B1220; --accent-soft: #1D2A44;
+      --mark: #FF9A6B; --mark-soft: #3A2418; --mark-ink: #1A0D06;
+      --good: #5CD08F; --warn: #E5B454; --danger: #FF8A80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1319; --panel: #171C24; --soft: #1E2530; --ink: #E7EBF0; --muted: #98A4B2; --line: #2D3744;
+    --accent: #7AA7FF; --accent-ink: #0B1220; --accent-soft: #1D2A44;
+    --mark: #FF9A6B; --mark-soft: #3A2418; --mark-ink: #1A0D06;
+    --good: #5CD08F; --warn: #E5B454; --danger: #FF8A80;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+  .shell {
+    max-width: 1000px; margin: 0 auto; display: grid; gap: 30px; padding-block: 22px 44px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  [hidden] { display: none !important; }
+  .sec { display: grid; gap: 12px; min-width: 0; }
+  h1, h2, p { margin: 0; }
+  h2 { font: 600 0.72rem/1.2 var(--font-body); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* testata */
+  .masthead { display: grid; gap: 10px; }
+  .kicker { font: 500 0.74rem/1.2 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  h1 { font: 700 clamp(1.9rem, 6vw, 2.6rem)/1.05 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+  .lede { max-width: 62ch; color: var(--muted); }
+  .staff-rule { width: min(220px, 60%); height: 32px; color: var(--ink); }
+
+  /* controlli */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 16px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px;
+    font: 600 0.9rem/1 var(--font-body); cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.danger { color: var(--danger); }
+  .btn.small { min-height: 34px; padding: 0 12px; font-size: 0.84rem; }
+  .btn[aria-pressed="true"].toggle, .seg button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+  select, input[type="range"] { width: 100%; min-width: 0; }
+  select {
+    font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-height: 40px;
+  }
+  input[type="range"] { accent-color: var(--accent); }
+  .field { display: grid; gap: 6px; min-width: 0; align-content: start; }
+  .field .lab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-weight: 500; font-size: 0.86rem; }
+  .field output { font: 400 0.78rem var(--font-mono); color: var(--muted); }
+  .field .help { font-size: 0.78rem; color: var(--muted); }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px 20px; }
+  .check { display: flex; align-items: center; gap: 10px; min-height: 40px; font-weight: 500; font-size: 0.9rem; }
+  .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+  /* sorgente */
+  .drop { display: grid; gap: 10px; padding: 16px; border: 1.5px dashed var(--line); border-radius: 6px; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .hint { font-size: 0.84rem; color: var(--muted); overflow-wrap: anywhere; }
+
+  /* viewer */
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .toolbar .zoomwrap { display: flex; align-items: center; gap: 10px; flex: 1 1 220px; min-width: 0; }
+  .toolbar .zoomwrap span { font-size: 0.84rem; font-weight: 500; }
+  .toolbar output { font: 400 0.78rem var(--font-mono); color: var(--muted); min-width: 3.4em; }
+  .stage { border: 1px solid var(--line); background: var(--paper); overflow: auto; max-height: min(72vh, 700px); border-radius: 4px; }
+  .stage canvas { display: block; cursor: crosshair; }
+  .status { font-size: 0.88rem; color: var(--muted); min-height: 1.4em; }
+  .status[data-kind="ok"] { color: var(--good); }
+  .status[data-kind="warn"] { color: var(--warn); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.78rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 14px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+  .lg-note { border: 1.5px solid var(--cv-accent); }
+  .lg-low { border: 1.5px dashed var(--cv-accent); }
+  .lg-bar { border-left: 2px dashed var(--cv-bar); width: 2px !important; }
+  .lg-skip { background: rgba(88, 100, 115, 0.3); }
+
+  /* risultati */
+  .summary-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .summary { font: 500 0.88rem var(--font-mono); }
+  .score { display: flex; flex-wrap: wrap; gap: 14px 18px; }
+  .measure { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-left: 10px; border-left: 2px solid var(--line); min-width: 0; }
+  .mno { align-self: flex-start; font: 500 0.66rem/1 var(--font-mono); color: var(--muted); margin-right: 2px; padding-top: 4px; }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 9px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); border-radius: 5px; font: 500 0.86rem/1.1 var(--font-mono); cursor: pointer;
+  }
+  .chip .du { font-size: 0.7rem; color: var(--muted); }
+  .chip.low { border-style: dashed; }
+  .chip[aria-pressed="true"] { border-color: var(--mark); background: var(--mark-soft); }
+  .chip.playing { background: var(--mark); border-color: var(--mark); color: var(--mark-ink); }
+  .chip.playing .du { color: var(--mark-ink); }
+  .empty { color: var(--muted); font-size: 0.9rem; }
+
+  .editor { display: grid; gap: 14px; padding: 14px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; }
+  .ed-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .ed-name { font: 700 1.6rem/1 var(--font-display); }
+  .ed-meta { color: var(--muted); font-size: 0.84rem; }
+  .ed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 14px; align-items: end; }
+  .seg { display: flex; }
+  .seg button { flex: 1; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 0.9rem var(--font-body); cursor: pointer; }
+  .seg button + button { margin-left: -1px; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; }
+  .seg button:last-child { border-radius: 0 6px 6px 0; }
+  .ed-tip { font-size: 0.78rem; color: var(--muted); }
+
+  /* riproduzione ed export */
+  .player { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; }
+  .player .btn { min-width: 132px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tabs [role="tab"][aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); }
+  textarea {
+    width: 100%; min-height: 13rem; resize: vertical; padding: 12px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 6px; font: 400 0.78rem/1.55 var(--font-mono); white-space: pre; overflow: auto;
+  }
+  .limits { display: grid; gap: 6px; font-size: 0.84rem; color: var(--muted); max-width: 70ch; }
+  .limits strong { color: var(--ink); font-weight: 600; }
+  @media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: background-color 0.12s, border-color 0.12s; } }
+</style>
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <p class="kicker">Riconoscimento ottico della musica</p>
+    <h1>OCR Pentagrammi</h1>
+    <svg class="staff-rule" viewBox="0 0 220 32" role="img" aria-label="Un pentagramma con una nota">
+      <g stroke="currentColor" stroke-opacity="0.45" stroke-width="1.2">
+        <line x1="0" y1="6" x2="220" y2="6" /><line x1="0" y1="12" x2="220" y2="12" /><line x1="0" y1="18" x2="220" y2="18" />
+        <line x1="0" y1="24" x2="220" y2="24" /><line x1="0" y1="30" x2="220" y2="30" />
+      </g>
+      <g fill="var(--accent)" stroke="var(--accent)">
+        <ellipse cx="150" cy="21" rx="7" ry="5" transform="rotate(-20 150 21)" stroke="none" />
+        <line x1="156.5" y1="19.5" x2="156.5" y2="-4" stroke-width="1.6" />
+      </g>
+    </svg>
+    <p class="lede">Carica la scansione o una foto frontale di uno spartito. Righi, note, durate, punti e stanghette vengono letti nel browser: l'immagine non lascia il tuo dispositivo.</p>
+  </header>
+
+  <section class="sec" aria-labelledby="h-img">
+    <h2 id="h-img">Immagine</h2>
+    <div class="drop" id="drop">
+      <div class="row">
+        <button class="btn primary" id="btnPick" type="button">Scegli un'immagine</button>
+        <input id="file" type="file" accept="image/*" hidden>
+        <button class="btn" id="btnSample" type="button">Spartito di esempio</button>
+      </div>
+      <p class="hint">Puoi anche trascinare qui un file JPG, PNG o WebP.</p>
+      <p class="hint" id="srcInfo"></p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-set">
+    <h2 id="h-set">Impostazioni di lettura</h2>
+    <div class="fields">
+      <div class="field">
+        <label class="lab" for="clef">Chiave di tutti i righi</label>
+        <select id="clef"><option value="treble">Sol (violino)</option><option value="bass">Fa (basso)</option><option value="alto">Do contralto (3ª riga)</option><option value="tenor">Do tenore (4ª riga)</option></select>
+      </div>
+      <div class="field">
+        <label class="lab" for="key">Armatura di chiave</label>
+        <select id="key"></select>
+      </div>
+      <div class="field">
+        <label class="lab" for="meter">Tempo</label>
+        <select id="meter">
+          <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
+          <option value="6/8">6/8</option><option value="2/2">2/2</option><option value="3/8">3/8</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lab" for="bpm"><span>Velocità</span><output id="bpmOut" for="bpm"></output></label>
+        <input id="bpm" type="range" min="40" max="200" step="1" value="90">
+      </div>
+      <div class="field">
+        <label class="lab" for="skip"><span>Salta a sinistra</span><output id="skipOut" for="skip"></output></label>
+        <input id="skip" type="range" min="0" max="14" step="0.5" value="1">
+        <span class="help">Chiave, armatura e indicazione di tempo non vengono lette. L'area grigia sull'immagine viene ignorata.</span>
+      </div>
+      <div class="field">
+        <label class="lab" for="thr"><span>Sensibilità</span><output id="thrOut" for="thr"></output></label>
+        <input id="thr" type="range" min="0.6" max="1.4" step="0.05" value="1">
+        <span class="help">Aumenta se i tratti sono sbiaditi, riduci se ci sono macchie.</span>
+      </div>
+      <div class="field">
+        <span class="lab">Inclinazione</span>
+        <label class="check"><input id="deskew" type="checkbox" checked> Raddrizza se inclinata</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-ver">
+    <h2 id="h-ver">Verifica sull'immagine</h2>
+    <p class="status" id="status" role="status" aria-live="polite">Avvio…</p>
+    <div class="toolbar">
+      <div class="zoomwrap">
+        <span>Zoom</span>
+        <input id="zoom" type="range" min="20" max="250" step="5" value="100" aria-label="Zoom dell'immagine">
+        <output id="zoomOut" for="zoom"></output>
+      </div>
+      <button class="btn small" id="fit" type="button">Adatta alla larghezza</button>
+    </div>
+    <div class="stage" id="stage" tabindex="0" aria-label="Spartito con le note riconosciute"><canvas id="cv" width="10" height="10"></canvas></div>
+    <div class="legend" aria-hidden="true">
+      <span><i class="lg-note"></i>nota riconosciuta</span>
+      <span><i class="lg-low"></i>nota incerta</span>
+      <span><i class="lg-bar"></i>stanghetta</span>
+      <span><i class="lg-skip"></i>zona ignorata</span>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-note">
+    <h2 id="h-note">Note riconosciute</h2>
+    <div class="summary-row">
+      <p class="summary" id="summary"></p>
+      <button class="btn small" id="restore" type="button" hidden></button>
+    </div>
+    <div class="fields" id="staffClefs" hidden></div>
+    <div class="score" id="list"></div>
+    <div class="editor" id="editor" hidden>
+      <div class="ed-head"><span class="ed-name" id="edName"></span><span class="ed-meta" id="edMeta"></span></div>
+      <div class="ed-grid">
+        <div class="field">
+          <span class="lab">Altezza</span>
+          <div class="seg">
+            <button id="edDown" type="button">Più grave</button>
+            <button id="edUp" type="button">Più acuta</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="lab" for="edType">Durata</label>
+          <select id="edType"></select>
+        </div>
+        <div class="field">
+          <span class="lab">Puntata</span>
+          <label class="check"><input id="edDot" type="checkbox"> Aumenta di metà</label>
+        </div>
+        <div class="field">
+          <span class="lab">Alterazione</span>
+          <div class="seg" id="edAcc">
+            <button type="button" data-acc="auto" aria-label="Segui l'armatura">Auto</button>
+            <button type="button" data-acc="#" aria-label="Diesis">♯</button>
+            <button type="button" data-acc="b" aria-label="Bemolle">♭</button>
+            <button type="button" data-acc="n" aria-label="Bequadro">♮</button>
+          </div>
+        </div>
+        <div class="field"><button class="btn danger" id="edDel" type="button">Elimina nota</button></div>
+      </div>
+      <p class="ed-tip">La durata vale per tutte le note dell'accordo. Con una nota selezionata, le frecce su e giù ne cambiano l'altezza e Canc la elimina.</p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-play">
+    <h2 id="h-play">Ascolta</h2>
+    <div class="player">
+      <button class="btn primary toggle" id="play" type="button" aria-pressed="false">Ascolta</button>
+      <span class="hint" id="playInfo"></span>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-exp">
+    <h2 id="h-exp">Esporta</h2>
+    <div class="tabs" role="tablist" aria-label="Formato di esportazione">
+      <button class="btn small" id="tabXml" role="tab" type="button" aria-selected="true">MusicXML</button>
+      <button class="btn small" id="tabNames" role="tab" type="button" aria-selected="false">Nomi delle note</button>
+      <button class="btn small" id="copy" type="button">Copia il testo</button>
+    </div>
+    <textarea id="out" readonly spellcheck="false" aria-label="Testo esportato"></textarea>
+    <p class="hint">Salva il testo MusicXML in un file con estensione .musicxml e aprilo con MuseScore, Finale o Dorico.</p>
+    <div class="player">
+      <button class="btn primary" id="dlMidi" type="button">Scarica MIDI</button>
+      <span class="hint" id="midiInfo">File .mid con le note lette, la velocità e il tempo scelti sopra.</span>
+    </div>
+  </section>
+
+  <section class="limits" aria-label="Limiti attuali">
+    <p><strong>Cosa legge:</strong> righi anche curvi o inclinati (come in una foto della pagina), teste piene e vuote, gambi, travi, bandierine fino alla biscroma, punti di valore, stanghette e linee addizionali. Le chiavi di Sol, Fa e Do si scelgono per ogni rigo.</p>
+    <p><strong>Cosa non legge ancora:</strong> pause, alterazioni scritte accanto alle note, legature, più voci sullo stesso rigo e righi a due chiavi. Le foto con ombre, scritte a matita o righi molto piccoli danno risultati parziali: controlla i riquadri e correggi con l'editor.</p>
+  </section>
+</div>
+
+<script>/* OMR engine: riconoscimento di pentagrammi in JavaScript puro.
+   Funziona sia nel browser (window.OMR) sia in Node (module.exports). */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.OMR = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ */
+  /* Costanti musicali                                                   */
+  /* ------------------------------------------------------------------ */
+  const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+  const SOLFEGE = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'];
+  const SEMI = [0, 2, 4, 5, 7, 9, 11];
+  const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6]; // F C G D A E B
+  const FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3]; // B E A D G C F
+  const BEATS = { whole: 4, half: 2, quarter: 1, eighth: 0.5, sixteenth: 0.25, thirtysecond: 0.125 };
+  const XMLTYPE = { whole: 'whole', half: 'half', quarter: 'quarter', eighth: 'eighth', sixteenth: '16th', thirtysecond: '32nd' };
+  const TYPE_BY_FLAGS = ['quarter', 'eighth', 'sixteenth', 'thirtysecond'];
+  // diapason (indice diatonico) della linea più bassa del rigo
+  const BASE_DIATONIC = { treble: 4 * 7 + 2, bass: 2 * 7 + 4, alto: 3 * 7 + 3, tenor: 3 * 7 + 1 }; // linea più bassa: E4, G2, F3, D3
+  const CLEF_XML = { treble: '<sign>G</sign><line>2</line>', bass: '<sign>F</sign><line>4</line>', alto: '<sign>C</sign><line>3</line>', tenor: '<sign>C</sign><line>4</line>' };
+  const clefOf = (s, staff) => (s.clefs && s.clefs[staff]) || s.clef || 'treble';
+
+  /* ------------------------------------------------------------------ */
+  /* Elaborazione di immagine                                            */
+  /* ------------------------------------------------------------------ */
+  function otsu(g) {
+    const h = new Float64Array(256);
+    for (let i = 0; i < g.length; i++) h[g[i]]++;
+    const tot = g.length;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) sum += i * h[i];
+    let wB = 0, sB = 0, best = -1, thr = 127;
+    for (let t = 0; t < 256; t++) {
+      wB += h[t];
+      if (!wB) continue;
+      const wF = tot - wB;
+      if (!wF) break;
+      sB += t * h[t];
+      const mB = sB / wB, mF = (sum - sB) / wF;
+      const v = wB * wF * (mB - mF) * (mB - mF);
+      if (v > best) { best = v; thr = t; }
+    }
+    return thr + 1;
+  }
+
+  function downscale(g, w, h, s) {
+    const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
+    const out = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      const sy0 = Math.floor(y / s), sy1 = Math.min(h, Math.max(sy0 + 1, Math.floor((y + 1) / s)));
+      for (let x = 0; x < W; x++) {
+        const sx0 = Math.floor(x / s), sx1 = Math.min(w, Math.max(sx0 + 1, Math.floor((x + 1) / s)));
+        let sum = 0, n = 0;
+        for (let yy = sy0; yy < sy1; yy++) for (let xx = sx0; xx < sx1; xx++) { sum += g[yy * w + xx]; n++; }
+        out[y * W + x] = n ? Math.round(sum / n) : 255;
+      }
+    }
+    return { gray: out, W, H };
+  }
+
+  // nero = 1. Soglia globale combinata con media locale (regge ombre e sfondi irregolari).
+  function binarize(g, W, H, thr) {
+    const R = Math.max(10, Math.min(60, Math.round(Math.min(W, H) / 14)));
+    const S = W + 1;
+    const I = new Uint32Array(S * (H + 1));
+    for (let y = 0; y < H; y++) {
+      let row = 0;
+      for (let x = 0; x < W; x++) {
+        row += g[y * W + x];
+        I[(y + 1) * S + x + 1] = I[y * S + x + 1] + row;
+      }
+    }
+    const out = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      const y0 = Math.max(0, y - R), y1 = Math.min(H, y + R + 1);
+      for (let x = 0; x < W; x++) {
+        const v = g[y * W + x];
+        if (v >= thr) continue;
+        const x0 = Math.max(0, x - R), x1 = Math.min(W, x + R + 1);
+        const area = (x1 - x0) * (y1 - y0);
+        const sum = I[y1 * S + x1] - I[y0 * S + x1] - I[y1 * S + x0] + I[y0 * S + x0];
+        if (v < sum / area - 10) out[y * W + x] = 1;
+      }
+    }
+    return out;
+  }
+
+  function estimateSkew(bin, W, H) {
+    let count = 0;
+    for (let i = 0; i < bin.length; i++) count += bin[i];
+    if (count < 200) return 0;
+    const stride = Math.max(1, Math.floor(count / 120000));
+    const xs = [], ys = [];
+    let k = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (bin[y * W + x]) { if (k++ % stride === 0) { xs.push(x); ys.push(y); } }
+      }
+    }
+    const n = xs.length;
+    const off = Math.ceil(W * 0.1) + 2;
+    const hist = new Int32Array(H + 2 * off + 8);
+    function score(deg) {
+      const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+      hist.fill(0);
+      for (let i = 0; i < n; i++) {
+        const yy = Math.round(ys[i] * c - xs[i] * s) + off;
+        if (yy >= 0 && yy < hist.length) hist[yy]++;
+      }
+      let sc = 0;
+      for (let i = 0; i < hist.length; i++) sc += hist[i] * hist[i];
+      return sc;
+    }
+    let bestA = 0, bestS = -1;
+    for (let d = -4; d <= 4.001; d += 0.25) { const sc = score(d); if (sc > bestS) { bestS = sc; bestA = d; } }
+    const c0 = bestA;
+    for (let d = c0 - 0.25; d <= c0 + 0.2501; d += 0.05) { const sc = score(d); if (sc > bestS) { bestS = sc; bestA = d; } }
+    return bestA * Math.PI / 180;
+  }
+
+  function rotateGray(g, W, H, th) {
+    const c = Math.cos(th), s = Math.sin(th), cx = W / 2, cy = H / 2;
+    const out = new Uint8Array(W * H).fill(255);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const dx = x - cx, dy = y - cy;
+        const xs = cx + dx * c - dy * s, ys = cy + dx * s + dy * c;
+        const x0 = Math.floor(xs), y0 = Math.floor(ys);
+        if (x0 < 0 || y0 < 0 || x0 >= W - 1 || y0 >= H - 1) continue;
+        const fx = xs - x0, fy = ys - y0;
+        const i = y0 * W + x0;
+        const v = g[i] * (1 - fx) * (1 - fy) + g[i + 1] * fx * (1 - fy) + g[i + W] * (1 - fx) * fy + g[i + W + 1] * fx * fy;
+        out[y * W + x] = v;
+      }
+    }
+    return out;
+  }
+
+  function label(bin, w, h, val, conn8) {
+    const N = w * h;
+    const lab = new Int32Array(N);
+    const comps = [null];
+    const stack = new Int32Array(N);
+    let n = 0;
+    for (let i = 0; i < N; i++) {
+      if (bin[i] !== val || lab[i]) continue;
+      n++;
+      let sp = 0;
+      stack[sp++] = i; lab[i] = n;
+      let area = 0, x0 = w, y0 = h, x1 = -1, y1 = -1, border = false;
+      while (sp) {
+        const p = stack[--sp];
+        const y = (p / w) | 0, x = p - y * w;
+        area++;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) border = true;
+        const l = x > 0, r = x < w - 1, u = y > 0, d = y < h - 1;
+        let q;
+        if (l && bin[q = p - 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+        if (r && bin[q = p + 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+        if (u && bin[q = p - w] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+        if (d && bin[q = p + w] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+        if (conn8) {
+          if (l && u && bin[q = p - w - 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+          if (r && u && bin[q = p - w + 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+          if (l && d && bin[q = p + w - 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+          if (r && d && bin[q = p + w + 1] === val && !lab[q]) { lab[q] = n; stack[sp++] = q; }
+        }
+      }
+      comps.push({ id: n, area, x0, y0, x1, y1, border });
+    }
+    return { lab, comps };
+  }
+
+  // Erosione / dilatazione con elemento strutturante rettangolare sx x sy (separabili, O(N)).
+  function boxOp(src, w, h, sx, sy, isErode) {
+    const loX = isErode ? (sx >> 1) : (sx - 1 - (sx >> 1)), hiX = sx - 1 - loX;
+    const loY = isErode ? (sy >> 1) : (sy - 1 - (sy >> 1)), hiY = sy - 1 - loY;
+    const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h);
+    const pre = new Int32Array(Math.max(w, h) + 1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) pre[x + 1] = pre[x] + src[y * w + x];
+      for (let x = 0; x < w; x++) {
+        const a = x - loX, b = x + hiX;
+        const a0 = Math.max(0, a), b0 = Math.min(w - 1, b);
+        const cnt = pre[b0 + 1] - pre[a0];
+        tmp[y * w + x] = isErode ? ((a >= 0 && b < w && cnt === sx) ? 1 : 0) : (cnt > 0 ? 1 : 0);
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) pre[y + 1] = pre[y] + tmp[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const a = y - loY, b = y + hiY;
+        const a0 = Math.max(0, a), b0 = Math.min(h - 1, b);
+        const cnt = pre[b0 + 1] - pre[a0];
+        out[y * w + x] = isErode ? ((a >= 0 && b < h && cnt === sy) ? 1 : 0) : (cnt > 0 ? 1 : 0);
+      }
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Scala, righi curvi e raddrizzamento                                 */
+  /* ------------------------------------------------------------------ */
+  const SP_REF = 16; // distanza canonica tra le linee, in pixel, per l'analisi
+
+  function resizeGray(g, w, h, f) {
+    if (f < 1) { const r = downscale(g, w, h, f); return { gray: r.gray, W: r.W, H: r.H }; }
+    const W = Math.max(1, Math.round(w * f)), H = Math.max(1, Math.round(h * f));
+    const out = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) {
+      const ys = Math.max(0, Math.min(h - 1.001, (y + 0.5) * h / H - 0.5)), y0 = Math.floor(ys), fy = ys - y0;
+      for (let x = 0; x < W; x++) {
+        const xs = Math.max(0, Math.min(w - 1.001, (x + 0.5) * w / W - 0.5)), x0 = Math.floor(xs), fx = xs - x0;
+        const i = y0 * w + x0;
+        out[y * W + x] = g[i] * (1 - fx) * (1 - fy) + g[i + 1] * fx * (1 - fy) + g[i + w] * (1 - fx) * fy + g[i + w + 1] * fx * fy;
+      }
+    }
+    return { gray: out, W, H };
+  }
+
+  // distanza tra le linee e spessore: moda delle coppie (nero + bianco successivo) lungo le colonne
+  function estimateSpacing(bin, W, H) {
+    const hist = new Float64Array(121), pairs = [];
+    for (let x = 0; x < W; x += 2) {
+      let y = 0;
+      while (y < H) {
+        while (y < H && !bin[y * W + x]) y++;
+        const bs = y;
+        while (y < H && bin[y * W + x]) y++;
+        const b = y - bs;
+        if (b === 0) break;
+        const ws = y;
+        while (y < H && !bin[y * W + x]) y++;
+        const wh = y - ws;
+        if (y >= H && wh === 0) break;
+        if (b <= 8 && b + wh <= 120) { hist[b + wh]++; pairs.push(b, b + wh); }
+      }
+    }
+    let best = 0, sp = 0;
+    for (let i = 4; i <= 120; i++) {
+      const v = hist[i - 1] + 2 * hist[i] + hist[i + 1 > 120 ? 120 : i + 1];
+      if (v > best) { best = v; sp = i; }
+    }
+    if (!sp || best < 40) return null;
+    const bh = new Float64Array(9);
+    for (let i = 0; i < pairs.length; i += 2) if (Math.abs(pairs[i + 1] - sp) <= 1) bh[pairs[i]]++;
+    let th = 1, bb = 0;
+    for (let i = 1; i <= 8; i++) if (bh[i] > bb) { bb = bh[i]; th = i; }
+    return { sp, th };
+  }
+
+  // cresta: pixel più scuro dei vicini sopra e sotto (linee sottili e orizzontali; esclude travi, gambi e teste)
+  function ridgeMap(g, W, H, th) {
+    const d = Math.max(2, th + 2), R = new Uint8Array(W * H);
+    for (let y = d; y < H - d; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x, a = g[i - d * W], b = g[i + d * W], m = a < b ? a : b;
+        const v = m - g[i];
+        if (v > 0) R[i] = v > 255 ? 255 : v;
+      }
+    }
+    return R;
+  }
+
+  function medianFilter(a, r) {
+    const n = a.length, out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const w = a.slice(Math.max(0, i - r), Math.min(n, i + r + 1)).sort((p, q) => p - q);
+      out[i] = w[w.length >> 1];
+    }
+    return out;
+  }
+  function smoothMA(a, r) {
+    const n = a.length, out = new Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0, c = 0;
+      for (let k = Math.max(0, i - r); k <= Math.min(n - 1, i + r); k++) { s += a[k]; c++; }
+      out[i] = s / c;
+    }
+    return out;
+  }
+
+  // Trova i righi, anche inclinati o curvi: strisce verticali -> gruppi di 5 linee -> catene.
+  function findStavesStrips(gray, W, H, sp, th) {
+    const R = ridgeMap(gray, W, H, th);
+    const ws = Math.max(24, Math.round(2.6 * sp)), step = Math.max(8, ws >> 1);
+    const strips = [];
+    for (let x0 = 0; x0 + ws <= W; x0 += step) {
+      const P = new Float64Array(H);
+      for (let y = 0; y < H; y++) { let c = 0; const o = y * W + x0; for (let x = 0; x < ws; x++) c += R[o + x]; P[y] = c; }
+      const Q = new Float64Array(H);
+      for (let y = 1; y < H - 1; y++) Q[y] = (P[y - 1] + 2 * P[y] + P[y + 1]) / 4;
+      let pmax = 0;
+      for (let y = 0; y < H; y++) if (Q[y] > pmax) pmax = Q[y];
+      const floor = Math.max(7 * ws, 0.14 * pmax);
+      let peaks = [];
+      for (let y = 2; y < H - 2; y++) {
+        if (Q[y] < floor || Q[y] < Q[y - 1] || Q[y] <= Q[y + 1]) continue;
+        let a = 0, b = 0;
+        for (let k = -2; k <= 2; k++) { a += P[y + k] * (y + k); b += P[y + k]; }
+        const cy = a / b;
+        if (peaks.length && cy - peaks[peaks.length - 1].y < 0.45 * sp) { if (Q[y] > peaks[peaks.length - 1].v) peaks[peaks.length - 1] = { y: cy, v: Q[y] }; continue; }
+        peaks.push({ y: cy, v: Q[y] });
+      }
+      // cinque picchi ugualmente distanziati, anche con picchi spuri in mezzo
+      const cands = [];
+      for (let i = 0; i < peaks.length; i++) {
+        for (let d = 0.72 * sp; d <= 1.35 * sp; d += 0.5) {
+          const pick = [peaks[i]];
+          const tol = Math.max(1.6, 0.14 * d);
+          for (let k = 1; k <= 4; k++) {
+            let best = null;
+            for (const p of peaks) if (Math.abs(p.y - (peaks[i].y + k * d)) <= tol && (!best || Math.abs(p.y - (peaks[i].y + k * d)) < Math.abs(best.y - (peaks[i].y + k * d)))) best = p;
+            if (!best) break;
+            pick.push(best);
+          }
+          if (pick.length < 5) continue;
+          const mean = (pick[4].y - pick[0].y) / 4;
+          let ok = mean >= 0.6 * sp && mean <= 1.5 * sp;
+          for (let k = 1; k < 4 && ok; k++) if (Math.abs(pick[k].y - (pick[0].y + k * mean)) > Math.max(1.8, 0.16 * mean)) ok = false;
+          if (ok) {
+            const vs = pick.map(p => p.v).sort((p, q) => p - q);
+            if (vs[0] < 0.4 * vs[2]) ok = false;
+          }
+          if (ok) cands.push({ y: pick.map(p => p.y), score: pick.reduce((q, p) => q + p.v, 0) });
+        }
+      }
+      cands.sort((a, b) => b.score - a.score);
+      const groups = [];
+      for (const c of cands) {
+        if (groups.some(g => c.y[0] < g.y[4] + 0.5 * sp && c.y[4] > g.y[0] - 0.5 * sp)) continue;
+        groups.push({ xc: x0 + ws / 2, y: c.y });
+      }
+      groups.sort((a, b) => a.y[0] - b.y[0]);
+      strips.push(groups);
+    }
+    // catene
+    const chains = [];
+    const mean = g => (g.y[0] + g.y[4]) / 2;
+    strips.forEach((groups, si) => {
+      const used = new Set();
+      for (const g of groups) {
+        let best = null, bd = 1e9;
+        for (const c of chains) {
+          if (used.has(c) || si - c.last > 4) continue;
+          const d = Math.abs(mean(c.pts[c.pts.length - 1]) - mean(g));
+          if (d < bd && d <= 0.4 * sp * (1 + 0.6 * (si - c.last - 1))) { bd = d; best = c; }
+        }
+        if (best) { best.pts.push(g); best.last = si; used.add(best); }
+        else { const c = { pts: [g], last: si }; chains.push(c); used.add(c); }
+      }
+    });
+    // unione di catene spezzate da una zona sporca (testo, etichette, ombre)
+    let merged = true;
+    while (merged) {
+      merged = false;
+      chains.sort((a, b) => a.pts[0].xc - b.pts[0].xc);
+      outer: for (let i = 0; i < chains.length; i++) for (let j = 0; j < chains.length; j++) {
+        if (i === j) continue;
+        const A = chains[i], B = chains[j];
+        const ea = A.pts[A.pts.length - 1], sb = B.pts[0];
+        const gap = sb.xc - ea.xc;
+        const med3 = arr => { const v = arr.map(mean).sort((p, q) => p - q); return v[v.length >> 1]; };
+        const yA = med3(A.pts.slice(-3)), yB = med3(B.pts.slice(0, 3));
+        if (gap > 0 && gap <= 20 * step && Math.abs(yA - yB) <= 0.45 * sp + 0.12 * gap) {
+          A.pts = A.pts.concat(B.pts); chains.splice(j, 1); merged = true; break outer;
+        }
+      }
+    }
+    // scarta le catene contenute in un'altra (stesso rigo trovato due volte)
+    chains.sort((a, b) => b.pts.length - a.pts.length);
+    const keepCh = [];
+    for (const c of chains) {
+      let covered = 0;
+      for (const p of c.pts) {
+        for (const k of keepCh) {
+          const q = k.pts.find(z => Math.abs(z.xc - p.xc) < 1);
+          if (q && Math.abs(mean(q) - mean(p)) < 2.2 * sp) { covered++; break; }
+        }
+      }
+      if (covered < 0.5 * c.pts.length) keepCh.push(c);
+    }
+    chains.length = 0; chains.push(...keepCh);
+    const staves = [];
+    for (const c of chains) {
+      const xs = c.pts.map(p => p.xc);
+      if (c.pts.length < 5 || xs[xs.length - 1] - xs[0] < 8 * sp) continue;
+      // serie per linea: mediana + media mobile contro i valori anomali
+      c.pts.sort((p, q) => p.xc - q.xc);
+      const xs0 = c.pts.map(p => p.xc);
+      const mser = c.pts.map(p => (p.y[0] + p.y[4]) / 2), mmed = medianFilter(mser, 4);
+      const goodIdx = [];
+      c.pts.forEach((p, i) => { if (Math.abs(mser[i] - mmed[i]) <= 0.3 * sp) goodIdx.push(i); });
+      if (goodIdx.length < 5) continue;
+      c.pts = goodIdx.map(i => c.pts[i]);
+      xs.length = 0; c.pts.forEach(p => xs.push(p.xc));
+      const Y = [0, 1, 2, 3, 4].map(k => smoothMA(medianFilter(c.pts.map(p => p.y[k]), 3), 1));
+      const x0 = Math.max(0, Math.round(xs[0] - ws / 2)), x1 = Math.min(W - 1, Math.round(xs[xs.length - 1] + ws / 2));
+      const len = x1 - x0 + 1;
+      const lines = [0, 1, 2, 3, 4].map(() => new Float32Array(len));
+      for (let k = 0; k < 5; k++) {
+        let j = 0;
+        for (let i = 0; i < len; i++) {
+          const x = x0 + i;
+          while (j < xs.length - 2 && xs[j + 1] < x) j++;
+          const a = xs[j], b = xs[Math.min(j + 1, xs.length - 1)];
+          const t = b > a ? (x - a) / (b - a) : 0;
+          lines[k][i] = Y[k][j] + (Y[k][Math.min(j + 1, xs.length - 1)] - Y[k][j]) * t;
+        }
+      }
+      const spL = new Float32Array(len), mid = new Float32Array(len), top = new Float32Array(len), theta = new Float32Array(len);
+      for (let i = 0; i < len; i++) { top[i] = lines[0][i]; spL[i] = (lines[4][i] - lines[0][i]) / 4; mid[i] = lines[2][i]; }
+      for (let i = 0; i < len; i++) { const a = Math.max(0, i - 10), b = Math.min(len - 1, i + 10); theta[i] = (mid[b] - mid[a]) / Math.max(1, b - a); }
+      let spm = 0; for (let i = 0; i < len; i++) spm += spL[i];
+      staves.push({ x0, x1, lines, sp: spm / len, spL, mid, top, theta, thick: th });
+    }
+    staves.sort((a, b) => a.top[0] - b.top[0]);
+    return staves;
+  }
+
+  // Corregge gli ultimi pixel: sposta in verticale ogni colonna della banda perche' le 5 linee cadano sulle righe canoniche.
+  function refineBand(band, th) {
+    const { W, H, M } = band;
+    const wnd = 48, stride = 8;
+    if (W < wnd + 8) return;
+    const Rg = ridgeMap(band.gray, W, H, th);
+    const cs = [], ds = [], sc = [];
+    for (let xc = wnd >> 1; xc <= W - (wnd >> 1); xc += stride) {
+      let best = -1, bd = 0, tot = 0;
+      for (let d = -6; d <= 6; d++) {
+        let v = 0;
+        for (let k = 0; k < 5; k++) {
+          const yl = M + k * SP_REF + d;
+          for (let dy = -1; dy <= 1; dy++) {
+            const yy = yl + dy;
+            if (yy < 0 || yy >= H) continue;
+            const o = yy * W + xc - (wnd >> 1);
+            for (let x = 0; x < wnd; x++) v += Rg[o + x];
+          }
+        }
+        tot += v;
+        if (v > best) { best = v; bd = d; }
+      }
+      cs.push(xc); ds.push(bd); sc.push(best / (tot / 13 + 1));
+    }
+    // dove il picco non spicca si tiene lo spostamento dei vicini
+    const good = ds.map((d, i) => sc[i] > 1.12);
+    const filled = ds.slice();
+    for (let i = 0; i < ds.length; i++) {
+      if (good[i]) continue;
+      let l = i - 1, r = i + 1;
+      while (l >= 0 && !good[l]) l--;
+      while (r < ds.length && !good[r]) r++;
+      filled[i] = l >= 0 && r < ds.length ? (filled[l] + ds[r]) / 2 : l >= 0 ? ds[l] : r < ds.length ? ds[r] : 0;
+    }
+    const sm = smoothMA(medianFilter(filled, 3), 1);
+    const delta = new Float32Array(W);
+    for (let x = 0, j = 0; x < W; x++) {
+      while (j < cs.length - 2 && cs[j + 1] < x) j++;
+      const a = cs[j], b = cs[Math.min(j + 1, cs.length - 1)];
+      const t = b > a ? Math.max(0, Math.min(1, (x - a) / (b - a))) : 0;
+      delta[x] = sm[j] + (sm[Math.min(j + 1, sm.length - 1)] - sm[j]) * t;
+    }
+    const out = new Uint8Array(W * H).fill(255);
+    for (let x = 0; x < W; x++) {
+      const d = delta[x];
+      for (let y = 0; y < H; y++) {
+        const ys = y + d;
+        if (ys < 0 || ys >= H - 1) continue;
+        const y0 = Math.floor(ys), f = ys - y0;
+        out[y * W + x] = band.gray[y0 * W + x] * (1 - f) + band.gray[(y0 + 1) * W + x] * f;
+      }
+    }
+    band.gray = out;
+    const mb = band.mapBack;
+    band.mapBack = (xd, yd) => mb(xd, yd + delta[Math.max(0, Math.min(W - 1, Math.round(xd)))]);
+  }
+
+  // Appiattisce un rigo in una striscia con linee orizzontali e distanza SP_REF.
+  function buildBand(gray, W, H, st, prev, next) {
+    const Wb = st.x1 - st.x0 + 1, M = Math.round(5.2 * SP_REF), Hb = 2 * M + 4 * SP_REF;
+    const out = new Uint8Array(Wb * Hb).fill(255);
+    for (let xd = 0; xd < Wb; xd++) {
+      const x = st.x0 + xd;
+      let up = -1e9, dn = 1e9;
+      if (prev && x >= prev.x0 && x <= prev.x1) up = (prev.lines[4][x - prev.x0] + st.lines[0][xd]) / 2;
+      if (next && x >= next.x0 && x <= next.x1) dn = (st.lines[4][xd] + next.lines[0][x - next.x0]) / 2;
+      const top = st.top[xd], spx = st.spL[xd], mid = st.mid[xd], th = st.theta[xd];
+      for (let yd = 0; yd < Hb; yd++) {
+        const ys = top + (yd - M) / SP_REF * spx;
+        if (ys < up || ys > dn || ys < 0 || ys >= H - 1) continue;
+        const xs = x - (ys - mid) * th;
+        if (xs < 0 || xs >= W - 1) continue;
+        const x0 = Math.floor(xs), y0 = Math.floor(ys), fx = xs - x0, fy = ys - y0, i = y0 * W + x0;
+        out[yd * Wb + xd] = gray[i] * (1 - fx) * (1 - fy) + gray[i + 1] * fx * (1 - fy) + gray[i + W] * (1 - fx) * fy + gray[i + W + 1] * fx * fy;
+      }
+    }
+    const mapBack = (xd, yd) => {
+      const i = Math.max(0, Math.min(Wb - 1, Math.round(xd)));
+      const ys = st.top[i] + (yd - M) / SP_REF * st.spL[i];
+      return [st.x0 + xd - (ys - st.mid[i]) * st.theta[i], ys];
+    };
+    return { gray: out, W: Wb, H: Hb, M, mapBack };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Analisi di un rigo                                                  */
+  /* ------------------------------------------------------------------ */
+  function runAt(B, bw, bh, x, y) {
+    let a = y, b = y;
+    for (;;) { if (a > 0 && B[(a - 1) * bw + x]) a--; else if (a > 1 && B[(a - 2) * bw + x]) a -= 2; else if (a > 2 && B[(a - 3) * bw + x]) a -= 3; else break; }
+    for (;;) { if (b < bh - 1 && B[(b + 1) * bw + x]) b++; else if (b < bh - 2 && B[(b + 2) * bw + x]) b += 2; else if (b < bh - 3 && B[(b + 3) * bw + x]) b += 3; else break; }
+    return [a, b];
+  }
+
+  function tightBox(lab, bw, comp, xa, xb) {
+    let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+    for (let y = comp.y0; y <= comp.y1; y++) {
+      for (let x = xa; x <= xb; x++) {
+        if (lab[y * bw + x] === comp.id) {
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+      }
+    }
+    return x1 < 0 ? null : { x0, x1, y0, y1 };
+  }
+
+  function findStem(Bc, bw, bh, hd, sp) {
+    const m0 = Math.max(0, Math.round(hd.y0 - 0.6 * sp)), m1 = Math.min(bh - 1, Math.round(hd.y1 + 0.6 * sp));
+    let best = null;
+    for (const side of [1, -1]) {
+      const xa = side > 0 ? Math.round(hd.x1 - 0.6 * sp) : Math.round(hd.x0 - 0.45 * sp);
+      const xb = side > 0 ? Math.round(hd.x1 + 0.45 * sp) : Math.round(hd.x0 + 0.6 * sp);
+      for (let x = xa; x <= xb; x++) {
+        if (x < 0 || x >= bw) continue;
+        for (let y = m0; y <= m1; y++) {
+          if (!Bc[y * bw + x]) continue;
+          const r = runAt(Bc, bw, bh, x, y);
+          const len = r[1] - r[0] + 1;
+          if (!best || len > best.len) best = { x, a: r[0], b: r[1], len };
+          y = r[1];
+        }
+      }
+    }
+    if (!best || best.len < 2.2 * sp) return null;
+    const up = (hd.y0 - best.a) >= (best.b - hd.y1);
+    return { x: best.x, up, tip: up ? best.a : best.b, len: best.len, a: best.a, b: best.b };
+  }
+
+  function flagCount(Bc, bw, bh, stem, sp, ly, th) {
+    const win = Math.round(2.1 * sp), minTh = Math.max(2, Math.round(0.2 * sp));
+    const yA = Math.max(0, stem.up ? stem.tip : stem.tip - win);
+    const yB = Math.min(bh - 1, stem.up ? stem.tip + win : stem.tip);
+    const inLine = (ya, yb) => ly.some(yl => ya >= yl - th / 2 - 1.5 && yb <= yl + th / 2 + 1.5);
+    let best = 0;
+    for (const d of [0.45, 0.7, 0.95]) {
+      for (const sg of [-1, 1]) {
+        const xx = Math.round(stem.x + sg * d * sp);
+        if (xx < 0 || xx >= bw) continue;
+        let cnt = 0, start = -1;
+        for (let y = yA; y <= yB + 1; y++) {
+          const on = y <= yB && Bc[y * bw + xx];
+          if (on && start < 0) start = y;
+          if (!on && start >= 0) {
+            const end = y - 1;
+            if (end - start + 1 >= minTh && !inLine(start, end)) cnt++;
+            start = -1;
+          }
+        }
+        if (cnt > best) best = cnt;
+      }
+    }
+    return Math.min(best, 3);
+  }
+
+  function hasDot(Bc, bw, bh, hd, sp, th) {
+    const xa = Math.round(hd.x1 + 0.25 * sp), xb = Math.round(hd.x1 + 1.25 * sp);
+    const ya = Math.round(hd.cy - 0.75 * sp), yb = Math.round(hd.cy + 0.35 * sp);
+    let n = 0, mx0 = 1e9, mx1 = -1, my0 = 1e9, my1 = -1;
+    for (let y = Math.max(0, ya); y <= Math.min(bh - 1, yb); y++) {
+      for (let x = Math.max(0, xa); x <= Math.min(bw - 1, xb); x++) {
+        if (Bc[y * bw + x]) {
+          n++;
+          if (x < mx0) mx0 = x; if (x > mx1) mx1 = x; if (y < my0) my0 = y; if (y > my1) my1 = y;
+        }
+      }
+    }
+    if (!n) return false;
+    const w = mx1 - mx0 + 1, h = my1 - my0 + 1;
+    const minD = Math.max(0.18 * sp, th * 0.9);
+    if (!(n >= 0.04 * sp * sp && w >= minD && h >= minD && w <= 0.7 * sp && h <= 0.7 * sp && n >= 0.4 * w * h)) return false;
+    // se continua verso la testa è una linea addizionale, non un punto
+    let left = 0;
+    for (let y = my0; y <= my1; y++) if (mx0 - 1 >= 0 && Bc[y * bw + mx0 - 1]) left++;
+    return left < 0.5 * h;
+  }
+
+  function analyzeStaff(bin, W, H, st, y0, y1, debug) {
+    const sp = st.sp, th = st.thick;
+    const cx0 = Math.max(0, Math.floor(st.x0 - sp)), cx1 = Math.min(W - 1, Math.ceil(st.x1 + sp));
+    const bw = cx1 - cx0 + 1, bh = y1 - y0 + 1;
+    const B0 = new Uint8Array(bw * bh);
+    for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) B0[y * bw + x] = bin[(y + y0) * W + x + cx0];
+    const Bc = B0.slice();
+
+    // 1) buchi piccoli (teste vuote), calcolati sull'immagine originale
+    const wl = label(B0, bw, bh, 0, false);
+    const okComp = new Uint8Array(wl.comps.length);
+    for (const c of wl.comps) {
+      if (!c) continue;
+      const cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1;
+      if (!c.border && c.area >= 3 && c.area <= 0.55 * sp * sp && cw <= 1.3 * sp && ch <= 0.72 * sp && cw <= 3.2 * ch && c.area / (cw * ch) >= 0.58 && c.area / (cw * ch) <= 0.88) okComp[c.id] = 1;
+    }
+    const hole = new Uint8Array(bw * bh);
+    for (let i = 0; i < hole.length; i++) if (wl.lab[i] && okComp[wl.lab[i]]) hole[i] = 1;
+
+    // 2) rimozione delle linee del rigo: si cancellano solo le sequenze verticali sottili
+    //    che non toccano un buco (gli archi di una testa vuota sono spessi quanto una linea)
+    for (const yc of st.lines) {
+      const yl = Math.round(yc) - y0;
+      for (let x = 0; x < bw; x++) {
+        let yi = -1;
+        for (const d of [0, -1, 1]) {
+          const yy = yl + d;
+          if (yy >= 0 && yy < bh && B0[yy * bw + x]) { yi = yy; break; }
+        }
+        if (yi < 0) continue;
+        let a = yi, b = yi;
+        while (a > 0 && B0[(a - 1) * bw + x]) a--;
+        while (b < bh - 1 && B0[(b + 1) * bw + x]) b++;
+        if (b - a + 1 > th + 2) continue;
+        let touch = false;
+        for (let k = 1; k <= 2 && !touch; k++) {
+          if (a - k >= 0 && hole[(a - k) * bw + x]) touch = true;
+          if (b + k < bh && hole[(b + k) * bw + x]) touch = true;
+        }
+        if (touch) continue;
+        for (let y = a; y <= b; y++) Bc[y * bw + x] = 0;
+      }
+    }
+    const F = new Uint8Array(bw * bh);
+    for (let i = 0; i < F.length; i++) F[i] = (Bc[i] || hole[i]) ? 1 : 0;
+
+    // 3) apertura morfologica: via gambi, travi, bandierine e punti; restano le teste
+    const ew = Math.max(3, Math.round(0.4 * sp)), eh = Math.max(4, Math.round(0.62 * sp));
+    const O = boxOp(boxOp(F, bw, bh, ew, eh, true), bw, bh, ew, eh, false);
+    const ol = label(O, bw, bh, 1, true);
+
+    const rej = [];
+    const R_ = (why, c) => { if (debug) rej.push({ why, x0: c.x0 + cx0, x1: c.x1 + cx0, y0: c.y0 + y0, y1: c.y1 + y0 }); };
+    if (debug) st.dbg = { B0, Bc, hole, F, O, bw, bh, cx0, y0, rej };
+    const topLine = st.lines[0] - y0, botLine = st.lines[4] - y0;
+    const heads = [];
+    for (const c of ol.comps) {
+      if (!c) continue;
+      const w = c.x1 - c.x0 + 1, h = c.y1 - c.y0 + 1;
+      if (c.area < 0.35 * sp * sp) { R_('area', c); continue; }
+      if (c.area / (w * h) < 0.45) { R_('fill', c); continue; }
+      if (w > 2.4 * sp || h < 0.6 * sp || h > 5 * sp) { R_('size', c); continue; }
+      if (w < 0.7 * sp) { R_('narrow', c); continue; }
+      if (h > 2.8 * sp && h / w > 4.2) { R_('bar', c); continue; } // stanghette spesse / doppie
+      { // una trave continua a sinistra e a destra non è una testa
+        const reach = Math.round(1.6 * sp), need = Math.round(0.7 * sp);
+        let beam = false;
+        for (const f of [0.3, 0.5, 0.7]) {
+          const y = Math.round(c.y0 + f * (c.y1 - c.y0));
+          let L = 0, R = 0;
+          for (let x = c.x0 - 1; x >= Math.max(0, c.x0 - reach) && Bc[y * bw + x]; x--) L++;
+          for (let x = c.x1 + 1; x <= Math.min(bw - 1, c.x1 + reach) && Bc[y * bw + x]; x++) R++;
+          if (L >= need && R >= need) { beam = true; break; }
+        }
+        if (beam) { R_('beam', c); continue; }
+      }
+      let parts = [{ x0: c.x0, x1: c.x1, y0: c.y0, y1: c.y1 }];
+      if (w > 1.7 * sp) {
+        const mid = Math.floor((c.x0 + c.x1) / 2);
+        parts = [tightBox(ol.lab, bw, c, c.x0, mid), tightBox(ol.lab, bw, c, mid + 1, c.x1)].filter(Boolean);
+      }
+      for (const p of parts) {
+        const ph = p.y1 - p.y0 + 1;
+        const n = ph > 1.55 * sp ? Math.max(2, Math.round((ph - 0.9 * sp) / sp) + 1) : 1;
+        if (n === 1) heads.push(p);
+        else for (let i = 0; i < n; i++) {
+          const cy = p.y0 + 0.45 * sp + i * (ph - 0.9 * sp) / (n - 1);
+          heads.push({ x0: p.x0, x1: p.x1, y0: Math.round(cy - 0.45 * sp), y1: Math.round(cy + 0.45 * sp) });
+        }
+      }
+    }
+
+    const lyLocal = st.lines.map(v => v - y0);
+    const notes = [];
+    for (const hd of heads) {
+      hd.cx = (hd.x0 + hd.x1) / 2; hd.cy = (hd.y0 + hd.y1) / 2;
+      if (hd.cy < topLine - 4.3 * sp || hd.cy > botLine + 4.3 * sp) continue;
+      { // fuori dal rigo serve una linea addizionale: scarta lettere, dinamiche e macchie
+        const below = hd.cy > botLine, edge = below ? botLine : topLine;
+        const d = Math.abs(hd.cy - edge) / sp;
+        if ((below ? hd.cy > botLine : hd.cy < topLine) && d > 0.8) {
+          const yl = Math.round(edge + (below ? 1 : -1) * sp); // la prima linea addizionale deve esistere
+          const ext = Math.max(2, Math.round(0.45 * sp)), gap = Math.max(1, Math.round(0.05 * sp)), tolY = Math.round(0.35 * sp);
+          const cover = (xa, xb) => {
+            let bestC = 0;
+            for (let yy = yl - tolY; yy <= yl + tolY; yy++) {
+              let hit = 0, tot = 0;
+              for (let x = xa; x <= xb; x++) {
+                if (x < 0 || x >= bw) continue;
+                tot++;
+                for (let y = yy - 1; y <= yy + 1; y++) {
+                  if (y < 0 || y >= bh || !B0[y * bw + x]) continue;
+                  let a = y, b = y; // una linea addizionale e' sottile, una trave no
+                  while (a > 0 && B0[(a - 1) * bw + x]) a--;
+                  while (b < bh - 1 && B0[(b + 1) * bw + x]) b++;
+                  if (b - a + 1 <= th + 3) { hit++; break; }
+                }
+              }
+              if (tot && hit / tot > bestC) bestC = hit / tot;
+            }
+            return bestC;
+          };
+          const L = cover(hd.x0 - ext, hd.x0 - gap), Rr = cover(hd.x1 + gap, hd.x1 + ext);
+          if (L < 0.45 && Rr < 0.45) continue;
+        }
+      }
+      let holeN = 0;
+      for (let y = hd.y0; y <= hd.y1; y++) for (let x = hd.x0; x <= hd.x1; x++) if (hole[y * bw + x]) holeN++;
+      const hollow = holeN / ((hd.x1 - hd.x0 + 1) * (hd.y1 - hd.y0 + 1)) >= 0.10;
+      const stem = findStem(Bc, bw, bh, hd, sp);
+      let type, conf = 1, flags = 0;
+      if (stem) {
+        flags = hollow ? 0 : flagCount(Bc, bw, bh, stem, sp, lyLocal, th);
+        type = hollow ? 'half' : TYPE_BY_FLAGS[flags];
+      } else if (hollow) type = 'whole';
+      else { type = 'quarter'; conf = 0.35; }
+      const dot = hasDot(Bc, bw, bh, hd, sp, th);
+      const cyG = hd.cy + y0;
+      notes.push({
+        cx: hd.cx + cx0, cy: cyG,
+        x0: hd.x0 + cx0, x1: hd.x1 + cx0, y0: hd.y0 + y0, y1: hd.y1 + y0,
+        pos: Math.round((st.lines[4] - cyG) / (sp / 2)),
+        hollow, type, dots: dot ? 1 : 0, conf, acc: null, deleted: false,
+        stem: stem ? { x: stem.x + cx0, up: stem.up, tip: stem.tip + y0, a: stem.a + y0, b: stem.b + y0 } : null
+      });
+    }
+
+    // 4) stanghette: colonne nere che coprono tutto il rigo e non appartengono a una testa
+    const bars = [];
+    const tp = Math.round(topLine), bt = Math.round(botLine);
+    const cols = [];
+    for (let x = 0; x < bw; x++) {
+      let miss = 0, ok = true;
+      for (let y = tp; y <= bt; y++) if (!Bc[y * bw + x]) { if (++miss > 2) { ok = false; break; } }
+      if (ok) cols.push(x);
+    }
+    let k = 0;
+    while (k < cols.length) {
+      let e = k;
+      while (e + 1 < cols.length && cols[e + 1] - cols[e] <= 1) e++;
+      const cen = (cols[k] + cols[e]) / 2 + cx0;
+      const nearHead = notes.some(n => cen >= n.x0 - 0.6 * sp && cen <= n.x1 + 0.6 * sp);
+      if (!nearHead && (cols[e] - cols[k] + 1) <= 0.8 * sp) bars.push(cen);
+      k = e + 1;
+    }
+    return { notes, bars };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Pipeline completa                                                   */
+  /* ------------------------------------------------------------------ */
+  function recognize(src, w, h, opts) {
+    opts = Object.assign({ threshold: 1, deskew: true, maxDim: 3000 }, opts || {});
+    let gray = src, W = w, H = h;
+    const m = Math.max(w, h);
+    if (m > opts.maxDim) {
+      const r = downscale(src, w, h, opts.maxDim / m);
+      gray = r.gray; W = r.W; H = r.H;
+    }
+    let T = otsu(gray);
+    let bin = binarize(gray, W, H, T * opts.threshold);
+    const warnings = [];
+    // 1) normalizza la scala: le linee del rigo a circa SP_REF pixel l'una dall'altra
+    const est0 = estimateSpacing(bin, W, H);
+    if (est0) {
+      let scale = Math.max(0.3, Math.min(3, SP_REF / est0.sp));
+      if (Math.abs(scale - 1) < 0.12) scale = 1;
+      const big = Math.max(W, H) * scale;
+      if (big > 4200) scale *= 4200 / big;
+      if (scale !== 1) {
+        const r = resizeGray(gray, W, H, scale);
+        gray = r.gray; W = r.W; H = r.H;
+        T = otsu(gray);
+        bin = binarize(gray, W, H, T * opts.threshold);
+      }
+    }
+    // 2) raddrizza l'inclinazione generale
+    let angle = 0;
+    if (opts.deskew) {
+      angle = estimateSkew(bin, W, H);
+      if (Math.abs(angle) > 0.05 * Math.PI / 180) {
+        gray = rotateGray(gray, W, H, angle);
+        bin = binarize(gray, W, H, T * opts.threshold);
+      } else angle = 0;
+    }
+    // 3) righi, anche curvi
+    const est = estimateSpacing(bin, W, H);
+    const staves = est ? findStavesStrips(gray, W, H, est.sp, est.th) : [];
+    if (!staves.length) warnings.push('Nessun rigo trovato. Prova a cambiare la sensibilità o usa un\'immagine più nitida e frontale.');
+    const notes = [];
+    let gidCounter = 0;
+    staves.forEach((st, i) => {
+      const band = buildBand(gray, W, H, st, staves[i - 1], staves[i + 1]);
+      refineBand(band, est.th);
+      const bb = binarize(band.gray, band.W, band.H, T * opts.threshold);
+      // allinea le linee canoniche al massimo della proiezione orizzontale
+      const rows = new Float64Array(band.H);
+      for (let y = 0; y < band.H; y++) { let c = 0; for (let x = 0; x < band.W; x++) c += bb[y * band.W + x]; rows[y] = c; }
+      let bestD = 0, bestS = -1;
+      for (let d = -4; d <= 4; d++) {
+        let sc = 0;
+        for (let k = 0; k < 5; k++) for (let dy = -1; dy <= 1; dy++) { const yy = band.M + d + k * SP_REF + dy; if (yy >= 0 && yy < band.H) sc += rows[yy]; }
+        if (sc > bestS) { bestS = sc; bestD = d; }
+      }
+      const lines = [0, 1, 2, 3, 4].map(k => band.M + bestD + k * SP_REF);
+      const sb = { lines, sp: SP_REF, thick: Math.max(1, Math.min(4, est.th)), x0: 0, x1: band.W - 1 };
+      const r = analyzeStaff(bb, band.W, band.H, sb, 0, band.H - 1, opts.debug);
+      st.spD = SP_REF;
+      st.bars = r.bars;
+      st.barSegs = r.bars.map(bx => {
+        const p = band.mapBack(bx, lines[0] - 0.7 * SP_REF), q = band.mapBack(bx, lines[4] + 0.7 * SP_REF);
+        return [p[0], p[1], q[0], q[1]];
+      });
+      st.mapBack = band.mapBack; st.bandM = lines[0]; st.bandH = band.H;
+      if (opts.debug) st.dbg = { band, bb, r, a: sb.dbg };
+      // raggruppamento in accordi: stesso gambo (o stessa x per le teste senza gambo)
+      const ns = r.notes.sort((a, b) => a.cx - b.cx);
+      const tol = 0.4 * SP_REF;
+      const gstem = [];
+      for (const n of ns) {
+        let found = null;
+        for (const g of gstem) {
+          if (n.stem && g.stem && Math.abs(n.stem.x - g.stem.x) <= tol) { found = g; break; }
+          if (!n.stem && !g.stem && Math.abs(n.cx - g.cx) <= 0.6 * SP_REF) { found = g; break; }
+        }
+        if (!found) { found = { id: ++gidCounter, stem: n.stem, cx: n.cx }; gstem.push(found); }
+        n.gid = found.id;
+      }
+      // una bandierina che incrocia una linea del rigo forma un piccolo spazio chiuso e sembra una testa:
+      // se un gambo ha una testa a ciascuna estremità, si tiene quella più grande
+      const byG0 = {};
+      for (const n of ns) (byG0[n.gid] = byG0[n.gid] || []).push(n);
+      const drop = new Set();
+      for (const gid in byG0) {
+        const arr = byG0[gid];
+        if (arr.length < 2 || !arr[0].stem) continue;
+        const lo = Math.min(...arr.map(n => n.stem.a)), hi = Math.max(...arr.map(n => n.stem.b));
+        if (hi - lo < 2.8 * SP_REF) continue;
+        const topH = arr.filter(n => n.cy - lo < 1.5 * SP_REF), botH = arr.filter(n => hi - n.cy < 1.5 * SP_REF);
+        if (!topH.length || !botH.length) continue;
+        const wid = l => Math.max(...l.map(n => n.x1 - n.x0 + 1));
+        const area = l => l.reduce((a, n) => a + (n.x1 - n.x0 + 1) * (n.y1 - n.y0 + 1), 0);
+        const holl = l => l.some(n => n.hollow);
+        const keepTop = holl(topH) !== holl(botH) ? !holl(topH) : (wid(topH) !== wid(botH) ? wid(topH) > wid(botH) : area(topH) >= area(botH));
+        (keepTop ? botH : topH).forEach(n => drop.add(n));
+      }
+      if (drop.size) ns.splice(0, ns.length, ...ns.filter(n => !drop.has(n)));
+      // la durata del gruppo è quella della prima testa con gambo
+      const byG = {};
+      for (const n of ns) (byG[n.gid] = byG[n.gid] || []).push(n);
+      for (const gid in byG) {
+        const lead = byG[gid].find(n => n.stem) || byG[gid][0];
+        for (const n of byG[gid]) { n.type = lead.type; n.dots = lead.dots; if (lead.conf < n.conf) n.conf = lead.conf; }
+      }
+      // coordinate: dal rigo appiattito all'immagine
+      for (const n of ns) {
+        n.staff = i; n.dx = n.cx;
+        const c = band.mapBack(n.cx, n.cy);
+        const sc = st.spL[Math.max(0, Math.min(st.spL.length - 1, Math.round(n.cx)))] / SP_REF;
+        const hw = (n.x1 - n.x0 + 1) / 2, hh = (n.y1 - n.y0 + 1) / 2 * sc;
+        n.cx = c[0]; n.cy = c[1]; n.x0 = c[0] - hw; n.x1 = c[0] + hw; n.y0 = c[1] - hh; n.y1 = c[1] + hh;
+        if (opts.debug) n.stemD = n.stem;
+        n.stem = null;
+      }
+      notes.push(...ns);
+    });
+    notes.forEach((n, i) => { n.id = i; });
+    return { W, H, gray, angle, staves, notes, warnings };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Musica: altezze, durate, misure, export                              */
+  /* ------------------------------------------------------------------ */
+  function keyAlter(letterIdx, key) {
+    if (key > 0) return SHARP_ORDER.slice(0, key).includes(letterIdx) ? 1 : 0;
+    if (key < 0) return FLAT_ORDER.slice(0, -key).includes(letterIdx) ? -1 : 0;
+    return 0;
+  }
+
+  function pitchInfo(note, s) {
+    const d = BASE_DIATONIC[clefOf(s, note.staff)] + note.pos;
+    const li = ((d % 7) + 7) % 7;
+    const octave = Math.floor(d / 7);
+    let alter = keyAlter(li, s.key || 0);
+    if (note.acc === '#') alter = 1; else if (note.acc === 'b') alter = -1; else if (note.acc === 'n') alter = 0;
+    const midi = 12 * (octave + 1) + SEMI[li] + alter;
+    const sign = alter > 0 ? '♯' : alter < 0 ? '♭' : '';
+    return { step: LETTERS[li], alter, octave, midi, name: SOLFEGE[li] + sign + octave, nameEn: LETTERS[li] + (alter > 0 ? '#' : alter < 0 ? 'b' : '') + octave };
+  }
+
+  function beatsOf(note) { return BEATS[note.type] * (note.dots ? 1.5 : 1); }
+
+  function visibleNotes(res, s) {
+    return res.notes.filter(n => {
+      if (n.deleted) return false;
+      const st = res.staves[n.staff];
+      return n.dx >= (s.skipLeft || 0) * st.spD;
+    });
+  }
+
+  function groupsOf(res, s) {
+    const map = new Map();
+    for (const n of visibleNotes(res, s)) {
+      if (!map.has(n.gid)) map.set(n.gid, { gid: n.gid, staff: n.staff, x: n.dx, notes: [] });
+      const g = map.get(n.gid);
+      g.notes.push(n);
+      if (n.dx < g.x) g.x = n.dx;
+    }
+    const arr = [...map.values()];
+    for (const g of arr) {
+      g.notes.sort((a, b) => b.pos - a.pos); // dal più basso (cy maggiore) al più acuto
+      g.notes.reverse();
+      g.type = g.notes[0].type; g.dots = g.notes[0].dots; g.beats = beatsOf(g.notes[0]);
+    }
+    arr.sort((a, b) => a.staff - b.staff || a.x - b.x);
+    return arr;
+  }
+
+  function measuresOf(res, s) {
+    const groups = groupsOf(res, s);
+    const out = [];
+    res.staves.forEach((st, si) => {
+      const bars = (st.bars || []).slice().sort((a, b) => a - b);
+      const map = new Map();
+      for (const g of groups) {
+        if (g.staff !== si) continue;
+        let idx = 0;
+        for (const b of bars) if (b < g.x) idx++;
+        if (!map.has(idx)) map.set(idx, []);
+        map.get(idx).push(g);
+      }
+      [...map.keys()].sort((a, b) => a - b).forEach(k => out.push({ staff: si, groups: map.get(k) }));
+    });
+    return out;
+  }
+
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function buildMusicXML(res, s) {
+    const DIV = 8; // divisioni per semiminima
+    const meas = measuresOf(res, s);
+    let prevClef = null;
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<!' + 'DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n' +
+      '<score-partwise version="3.1">\n' +
+      '  <work><work-title>' + esc(s.title || 'Spartito riconosciuto') + '</work-title></work>\n' +
+      '  <part-list><score-part id="P1"><part-name>Melodia</part-name></score-part></part-list>\n' +
+      '  <part id="P1">\n';
+    meas.forEach((m, i) => {
+      xml += '    <measure number="' + (i + 1) + '">\n';
+      const cl = clefOf(s, m.staff);
+      if (i > 0 && cl !== prevClef) xml += '      <attributes><clef>' + CLEF_XML[cl] + '</clef></attributes>\n';
+      prevClef = cl;
+      if (i === 0) {
+        xml += '      <attributes><divisions>' + DIV + '</divisions><key><fifths>' + (s.key || 0) + '</fifths></key>' +
+          '<time><beats>' + (s.beatsNum || 4) + '</beats><beat-type>' + (s.beatsDen || 4) + '</beat-type></time>' +
+          '<clef>' + CLEF_XML[cl] + '</clef></attributes>\n';
+        xml += '      <direction placement="above"><direction-type><words>♩ = ' + (s.bpm || 90) + '</words></direction-type><sound tempo="' + (s.bpm || 90) + '"/></direction>\n';
+      }
+      for (const g of m.groups) {
+        const dur = Math.round(g.beats * DIV);
+        g.notes.forEach((n, k) => {
+          const p = pitchInfo(n, s);
+          xml += '      <note>' + (k ? '<chord/>' : '') + '<pitch><step>' + p.step + '</step>' +
+            (p.alter ? '<alter>' + p.alter + '</alter>' : '') + '<octave>' + p.octave + '</octave></pitch>' +
+            '<duration>' + dur + '</duration><type>' + XMLTYPE[g.type] + '</type>' + (g.dots ? '<dot/>' : '') + '</note>\n';
+        });
+      }
+      xml += '    </measure>\n';
+    });
+    xml += '  </part>\n</score-partwise>\n';
+    return xml;
+  }
+
+  function buildSchedule(res, s) {
+    let t = 0;
+    return groupsOf(res, s).map(g => {
+      const ev = { gid: g.gid, t, dur: g.beats, midis: g.notes.map(n => pitchInfo(n, s).midi), ids: g.notes.map(n => n.id) };
+      t += g.beats;
+      return ev;
+    });
+  }
+
+  // File MIDI standard (formato 0, una traccia): tempo, tempo in chiave, armatura e tutte le note.
+  function buildMidi(res, s) {
+    const PPQ = 480, sched = buildSchedule(res, s), ev = [];
+    for (const e of sched) {
+      const on = Math.round(e.t * PPQ);
+      const off = Math.max(on + 1, Math.round((e.t + e.dur) * PPQ) - Math.round(PPQ * 0.03));
+      for (const m of e.midis) {
+        const n = Math.max(0, Math.min(127, m));
+        ev.push({ t: on, o: 1, b: [0x90, n, 80] });
+        ev.push({ t: off, o: 0, b: [0x80, n, 0] });
+      }
+    }
+    ev.sort((a, b) => a.t - b.t || a.o - b.o);
+    const vlq = v => { const out = [v & 0x7f]; while ((v >>= 7) > 0) out.unshift((v & 0x7f) | 0x80); return out; };
+    const tr = [];
+    const meta = (type, data) => tr.push(0, 0xff, type, ...vlq(data.length), ...data);
+    const name = Array.from(new TextEncoder().encode(s.title || 'Spartito'));
+    meta(0x03, name);
+    const uspq = Math.round(60000000 / Math.max(20, Math.min(300, s.bpm || 90)));
+    meta(0x51, [(uspq >> 16) & 255, (uspq >> 8) & 255, uspq & 255]);
+    const den = s.beatsDen || 4;
+    meta(0x58, [s.beatsNum || 4, Math.round(Math.log2(den)), 24, 8]);
+    meta(0x59, [(s.key || 0) & 255, 0]);
+    tr.push(0, 0xc0, 0); // strumento 1 (pianoforte)
+    let last = 0;
+    for (const e of ev) { tr.push(...vlq(e.t - last), ...e.b); last = e.t; }
+    meta(0x2f, []);
+    const hdr = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, (PPQ >> 8) & 255, PPQ & 255];
+    const len = tr.length;
+    return new Uint8Array([...hdr, 0x4d, 0x54, 0x72, 0x6b, (len >>> 24) & 255, (len >>> 16) & 255, (len >>> 8) & 255, len & 255, ...tr]);
+  }
+
+  function noteText(res, s) {
+    const meas = measuresOf(res, s);
+    const sym = { whole: '1', half: '1/2', quarter: '1/4', eighth: '1/8', sixteenth: '1/16', thirtysecond: '1/32' };
+    return meas.map((m, i) => {
+      const parts = m.groups.map(g => {
+        const names = g.notes.map(n => pitchInfo(n, s).name).join('+');
+        return names + ' ' + sym[g.type] + (g.dots ? '.' : '');
+      });
+      return 'Battuta ' + (i + 1) + ' (rigo ' + (m.staff + 1) + '):  ' + parts.join('   ');
+    }).join('\n');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Spartito sintetico per prova ed esempio                              */
+  /* ------------------------------------------------------------------ */
+  function makeSample() {
+    const sp = 16, W = 1200, H = 440;
+    const g = new Uint8Array(W * H).fill(255);
+    const set = (x, y, v) => { if (x >= 0 && y >= 0 && x < W && y < H) g[y * W + x] = v; };
+    const rect = (x0, y0, x1, y1, v) => { for (let y = Math.round(y0); y < Math.round(y1); y++) for (let x = Math.round(x0); x < Math.round(x1); x++) set(x, y, v); };
+    const ell = (cx, cy, rx, ry, a, v) => {
+      const ca = Math.cos(a), sa = Math.sin(a), R = Math.ceil(Math.max(rx, ry)) + 1;
+      for (let y = Math.floor(cy - R); y <= cy + R; y++) for (let x = Math.floor(cx - R); x <= cx + R; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+        const u = dx * ca + dy * sa, w = -dx * sa + dy * ca;
+        if ((u * u) / (rx * rx) + (w * w) / (ry * ry) <= 1) set(x, y, v);
+      }
+    };
+    const seg = (x1, y1, x2, y2, r, v) => {
+      const minx = Math.floor(Math.min(x1, x2) - r - 1), maxx = Math.ceil(Math.max(x1, x2) + r + 1);
+      const miny = Math.floor(Math.min(y1, y2) - r - 1), maxy = Math.ceil(Math.max(y1, y2) + r + 1);
+      const dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy;
+      for (let y = miny; y <= maxy; y++) for (let x = minx; x <= maxx; x++) {
+        let t = L2 ? ((x + 0.5 - x1) * dx + (y + 0.5 - y1) * dy) / L2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        const px = x1 + t * dx - (x + 0.5), py = y1 + t * dy - (y + 0.5);
+        if (px * px + py * py <= r * r) set(x, y, v);
+      }
+    };
+    const P = name => { const m = /^([A-G])(\d)$/.exec(name); return (parseInt(m[2], 10) * 7 + LETTERS.indexOf(m[1])) - BASE_DIATONIC.treble; };
+    const N = (names, type, dot) => ({ ps: [].concat(names).map(P), type, dot: !!dot });
+    const beats = it => BEATS[it.type] * (it.dot ? 1.5 : 1);
+    const stemH = 56, rx = 10, ry = 7.2;
+
+    function drawStaff(top, measures, final) {
+      const x0 = 30, yb = top + 4 * sp;
+      // layout
+      let cur = x0 + 44;
+      const barsX = [];
+      const placed = [];
+      for (const m of measures) {
+        cur += 14;
+        for (const u of m) {
+          const items = u.beam ? u.beam : [u];
+          for (const it of items) { it.cx = cur + 16; cur += 30 + 22 * beats(it); }
+        }
+        barsX.push(cur + 8);
+        cur += 22;
+        placed.push(m);
+      }
+      const x1 = barsX[barsX.length - 1] + (final ? 12 : 2);
+      for (let k = 0; k < 5; k++) rect(x0, top + k * sp - 1, x1 + 1, top + k * sp + 1, 0);
+      rect(x0, top - 1, x0 + 2, yb + 1, 0);
+      barsX.forEach((bx, i) => {
+        rect(bx, top - 1, bx + 2, yb + 1, 0);
+        if (final && i === barsX.length - 1) rect(bx + 6, top - 1, bx + 11, yb + 1, 0);
+      });
+      const cyOf = p => yb - p * sp / 2;
+      const drawHeads = it => {
+        for (const p of it.ps) {
+          const cy = cyOf(p), cx = it.cx;
+          if (p <= -2) for (let q = -2; q >= p; q -= 2) rect(cx - 17, cyOf(q) - 1, cx + 17, cyOf(q) + 1, 0);
+          if (p >= 10) for (let q = 10; q <= p; q += 2) rect(cx - 17, cyOf(q) - 1, cx + 17, cyOf(q) + 1, 0);
+          if (it.type === 'whole') { ell(cx, cy, 11.5, 7.6, 0, 0); ell(cx, cy, 6.0, 3.3, -1.0, 255); }
+          else if (it.type === 'half') { ell(cx, cy, rx + 0.5, ry + 0.2, -0.35, 0); ell(cx, cy, 6.2, 3.1, -0.9, 255); }
+          else ell(cx, cy, rx, ry, -0.35, 0);
+          if (it.dot) ell(cx + 19, cy + (p % 2 === 0 ? -8 : 0), 2.5, 2.5, 0, 0);
+        }
+      };
+      const dirOf = ps => { const mx = Math.max(...ps), mn = Math.min(...ps); return (mx - 4) > (4 - mn) ? 'down' : 'up'; };
+      for (const m of measures) {
+        for (const u of m) {
+          if (u.beam) {
+            const items = u.beam, all = items.flatMap(i => i.ps);
+            const dir = (all.reduce((a, b) => a + b, 0) / all.length) >= 4 ? 'down' : 'up';
+            const cys = all.map(cyOf);
+            const tip = dir === 'up' ? Math.min(...cys) - stemH : Math.max(...cys) + stemH;
+            const sxs = items.map(it => dir === 'up' ? it.cx + rx - 1 : it.cx - rx + 1);
+            items.forEach((it, i) => { drawHeads(it); const hy = cyOf(it.ps[0]); rect(sxs[i], Math.min(hy, tip), sxs[i] + 2, Math.max(hy, tip), 0); });
+            const nb = items[0].type === 'sixteenth' ? 2 : 1;
+            for (let b = 0; b < nb; b++) {
+              if (dir === 'up') rect(sxs[0], tip + b * 12, sxs[sxs.length - 1] + 2, tip + b * 12 + 8, 0);
+              else rect(sxs[0], tip - b * 12 - 8, sxs[sxs.length - 1] + 2, tip - b * 12, 0);
+            }
+          } else {
+            drawHeads(u);
+            if (u.type !== 'whole') {
+              const dir = dirOf(u.ps), cys = u.ps.map(cyOf);
+              const sx = dir === 'up' ? u.cx + rx - 1 : u.cx - rx + 1;
+              const tip = dir === 'up' ? Math.min(...cys) - stemH : Math.max(...cys) + stemH;
+              const from = dir === 'up' ? Math.max(...cys) : Math.min(...cys);
+              rect(sx, Math.min(from, tip), sx + 2, Math.max(from, tip), 0);
+              if (u.type === 'eighth' || u.type === 'sixteenth') {
+                if (dir === 'up') seg(sx + 1, tip + 2, sx + 14, tip + 24, 2.5, 0);
+                else seg(sx + 1, tip - 2, sx + 14, tip - 24, 2.5, 0);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    drawStaff(95, [
+      [N('C4', 'quarter'), N('D4', 'quarter'), N('E4', 'quarter'), N('F4', 'quarter')],
+      [N('G4', 'half'), N('A4', 'half')],
+      [{ beam: [N('E5', 'eighth'), N('D5', 'eighth')] }, { beam: [N('C5', 'eighth'), N('B4', 'eighth')] }, N('A4', 'quarter'), N('G4', 'quarter')],
+      [N('A4', 'quarter', true), N('G4', 'eighth'), N('E4', 'half')],
+      [N('C5', 'whole')]
+    ], false);
+    drawStaff(270, [
+      [N(['C4', 'E4', 'G4'], 'quarter'), N('F5', 'quarter'), { beam: [N('E5', 'sixteenth'), N('D5', 'sixteenth'), N('C5', 'sixteenth'), N('B4', 'sixteenth')] }, N('G4', 'quarter')],
+      [N('A5', 'quarter'), N('G4', 'eighth'), N('F4', 'eighth'), N('E4', 'half')],
+      [N('D4', 'whole')]
+    ], true);
+
+    // leggero antialiasing 3x3
+    const out = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let s = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx, yy = y + dy;
+        if (xx >= 0 && yy >= 0 && xx < W && yy < H) { s += g[yy * W + xx]; n++; }
+      }
+      out[y * W + x] = Math.round(s / n);
+    }
+    return { gray: out, width: W, height: H };
+  }
+
+  return {
+    recognize, pitchInfo, beatsOf, visibleNotes, groupsOf, measuresOf,
+    buildMusicXML, buildMidi, buildSchedule, noteText, makeSample, rotateGray,
+    BEATS, BASE_DIATONIC
+  };
+});
+</script>
+<script>(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const el = {
+    file: $('file'), btnPick: $('btnPick'), btnSample: $('btnSample'), srcInfo: $('srcInfo'),
+    clef: $('clef'), staffClefs: $('staffClefs'), key: $('key'), meter: $('meter'), bpm: $('bpm'), bpmOut: $('bpmOut'),
+    skip: $('skip'), skipOut: $('skipOut'), thr: $('thr'), thrOut: $('thrOut'), deskew: $('deskew'),
+    zoom: $('zoom'), zoomOut: $('zoomOut'), fit: $('fit'), stage: $('stage'), cv: $('cv'), drop: $('drop'),
+    status: $('status'), summary: $('summary'), restore: $('restore'), list: $('list'),
+    editor: $('editor'), edName: $('edName'), edMeta: $('edMeta'), edType: $('edType'), edDot: $('edDot'),
+    edUp: $('edUp'), edDown: $('edDown'), edDel: $('edDel'), edAcc: $('edAcc'),
+    play: $('play'), playInfo: $('playInfo'),
+    dlMidi: $('dlMidi'), midiInfo: $('midiInfo'),
+    tabXml: $('tabXml'), tabNames: $('tabNames'), out: $('out'), copy: $('copy')
+  };
+  const COL_ACCENT = '#1D5FD1', COL_MARK = '#D9480F', COL_BAR = '#1B7F4B';
+  const TYPES = [['whole', 'Semibreve (1)'], ['half', 'Minima (1/2)'], ['quarter', 'Semiminima (1/4)'],
+    ['eighth', 'Croma (1/8)'], ['sixteenth', 'Semicroma (1/16)'], ['thirtysecond', 'Biscroma (1/32)']];
+  const FRAC = { whole: '1', half: '1/2', quarter: '1/4', eighth: '1/8', sixteenth: '1/16', thirtysecond: '1/32' };
+  const KEYS = [
+    [-7, '7♭ · Do♭ magg.'], [-6, '6♭ · Sol♭ magg.'], [-5, '5♭ · Re♭ magg.'], [-4, '4♭ · La♭ magg.'],
+    [-3, '3♭ · Mi♭ magg.'], [-2, '2♭ · Si♭ magg.'], [-1, '1♭ · Fa magg.'], [0, 'Nessuna · Do magg. / La min.'],
+    [1, '1♯ · Sol magg.'], [2, '2♯ · Re magg.'], [3, '3♯ · La magg.'], [4, '4♯ · Mi magg.'],
+    [5, '5♯ · Si magg.'], [6, '6♯ · Fa♯ magg.'], [7, '7♯ · Do♯ magg.']
+  ];
+
+  const state = {
+    src: null,            // { gray, w, h }
+    title: '',
+    isSample: false,
+    skipTouched: false,
+    res: null,
+    sel: null,
+    zoom: 1, zoomTouched: false,
+    tab: 'xml',
+    playing: false, playIds: new Set(), playGid: null,
+    base: null,
+    clefs: [],
+    runToken: 0
+  };
+
+  /* ---------- impostazioni ---------- */
+  KEYS.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; if (v === 0) o.selected = true; el.key.appendChild(o); });
+  TYPES.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; el.edType.appendChild(o); });
+
+  function S() {
+    const m = el.meter.value.split('/');
+    return { clef: el.clef.value, clefs: state.clefs, key: +el.key.value, bpm: +el.bpm.value, skipLeft: +el.skip.value,
+      beatsNum: +m[0], beatsDen: +m[1], title: state.title || 'Spartito riconosciuto' };
+  }
+  const fmt1 = v => String(Math.round(v * 100) / 100).replace('.', ',');
+
+  function syncOutputs() {
+    el.bpmOut.textContent = el.bpm.value + ' bpm';
+    el.skipOut.textContent = fmt1(+el.skip.value) + ' spazi';
+    el.thrOut.textContent = fmt1(+el.thr.value);
+    el.zoomOut.textContent = Math.round(+el.zoom.value) + '%';
+  }
+
+  function autoSkip() {
+    if (state.skipTouched || state.isSample) return;
+    el.skip.value = Math.min(14, 6.2 + 1.3 * Math.abs(+el.key.value));
+    syncOutputs();
+  }
+
+  /* ---------- immagine ---------- */
+  function setStatus(msg, kind) {
+    el.status.textContent = msg;
+    el.status.dataset.kind = kind || '';
+  }
+
+  function paintBase() {
+    const { W, H, gray } = state.res;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    const id = ctx.createImageData(W, H);
+    for (let i = 0, j = 0; i < gray.length; i++, j += 4) { const v = gray[i]; id.data[j] = v; id.data[j + 1] = v; id.data[j + 2] = v; id.data[j + 3] = 255; }
+    ctx.putImageData(id, 0, 0);
+    state.base = c;
+  }
+
+  function showRaw(gray, w, h) {
+    // mostra subito l'immagine di partenza mentre l'analisi è in corso
+    state.res = { W: w, H: h, gray, staves: [], notes: [], angle: 0, warnings: [] };
+    paintBase();
+    state.res = null;
+    el.cv.width = w; el.cv.height = h;
+    el.cv.getContext('2d').drawImage(state.base, 0, 0);
+    fitZoom(true);
+  }
+
+  function setSource(gray, w, h, name, sample) {
+    stopPlay();
+    state.src = { gray, w, h };
+    state.title = name;
+    state.isSample = !!sample;
+    state.sel = null;
+    state.clefs = [];
+    state.zoomTouched = false;
+    if (sample) { el.skip.value = 1; state.skipTouched = false; }
+    else if (!state.skipTouched) autoSkip();
+    el.srcInfo.textContent = name + ' · ' + w + ' × ' + h + ' px';
+    showRaw(gray, w, h);
+    run();
+  }
+
+  function loadSample() {
+    const s = OMR.makeSample();
+    el.clef.value = 'treble'; el.key.value = 0;
+    setSource(s.gray, s.width, s.height, 'Spartito di esempio', true);
+  }
+
+  async function loadFile(file) {
+    if (!file || !/^image\//.test(file.type)) { setStatus('Questo file non è un\'immagine. Usa JPG, PNG, WebP o simili.', 'warn'); return; }
+    setStatus('Caricamento dell\'immagine…');
+    try {
+      let bmp;
+      try { bmp = await createImageBitmap(file); }
+      catch (e) {
+        bmp = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); });
+      }
+      const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
+      const k = Math.min(1, 3000 / Math.max(w0, h0));
+      const w = Math.max(1, Math.round(w0 * k)), h = Math.max(1, Math.round(h0 * k));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(bmp, 0, 0, w, h);
+      const d = ctx.getImageData(0, 0, w, h).data;
+      const gray = new Uint8Array(w * h);
+      for (let i = 0, j = 0; i < gray.length; i++, j += 4) gray[i] = Math.round(0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]);
+      setSource(gray, w, h, file.name || 'Immagine caricata', false);
+    } catch (e) {
+      setStatus('Non riesco ad aprire questa immagine. Prova con un altro formato (JPG o PNG).', 'warn');
+    }
+  }
+
+  /* ---------- riconoscimento ---------- */
+  function run() {
+    if (!state.src) return;
+    const token = ++state.runToken;
+    setStatus('Analisi in corso…', 'busy');
+    setTimeout(() => {
+      if (token !== state.runToken) return;
+      try {
+        const t0 = performance.now();
+        state.res = OMR.recognize(state.src.gray, state.src.w, state.src.h, {
+          threshold: +el.thr.value, deskew: el.deskew.checked
+        });
+        state.res.ms = Math.round(performance.now() - t0);
+        paintBase();
+        el.cv.width = state.res.W; el.cv.height = state.res.H;
+        state.sel = null;
+        el.staffClefs.dataset.n = '';
+        fitZoom(true);
+        refresh();
+      } catch (e) {
+        console.error(e);
+        setStatus('L\'analisi non è riuscita su questa immagine.', 'warn');
+      }
+    }, 30);
+  }
+
+  /* ---------- zoom ---------- */
+  function fitZoom(initial) {
+    const W = (state.res ? state.res.W : state.src && state.src.w) || 1;
+    const avail = Math.max(200, el.stage.clientWidth - 2);
+    const fit = Math.min(1, avail / W);
+    let z = fit;
+    if (initial && !state.zoomTouched && avail < 600) z = Math.max(fit, 0.5);
+    if (!initial) { state.zoomTouched = false; z = fit; }
+    setZoom(z, false);
+  }
+  function setZoom(z, touched) {
+    z = Math.max(0.2, Math.min(2.5, z));
+    state.zoom = z;
+    if (touched) state.zoomTouched = true;
+    el.zoom.value = Math.round(z * 100);
+    const W = el.cv.width, H = el.cv.height;
+    el.cv.style.width = Math.round(W * z) + 'px';
+    el.cv.style.height = Math.round(H * z) + 'px';
+    syncOutputs();
+    if (state.res) drawOverlay();
+  }
+
+  /* ---------- disegno ---------- */
+  function drawOverlay() {
+    const res = state.res;
+    const ctx = el.cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(state.base, 0, 0);
+    if (!res) return;
+    const z = state.zoom, s = S();
+    const lw = Math.max(1.4, 1.5 / z);
+    const fs = Math.max(11, 12.5 / z);
+
+    res.staves.forEach((st, i) => {
+      // righi tracciati (seguono la curvatura della pagina)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(29,95,209,0.35)'; ctx.lineWidth = Math.max(1, 1 / z);
+      for (let k = 0; k < 5; k++) {
+        ctx.beginPath();
+        for (let x = 0; x < st.lines[k].length; x += 6) { const X = st.x0 + x, Y = st.lines[k][x]; if (x === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+        ctx.stroke();
+      }
+      ctx.restore();
+      // zona saltata (chiave, armatura, tempo)
+      const sk = Math.max(0, s.skipLeft * st.spD);
+      if (sk > 0) {
+        const ya = st.bandM - 3 * st.spD, yb = st.bandM + 7 * st.spD;
+        const p = [st.mapBack(0, ya), st.mapBack(sk, ya), st.mapBack(sk, yb), st.mapBack(0, yb)];
+        ctx.fillStyle = 'rgba(88,100,115,0.16)';
+        ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); for (let q = 1; q < 4; q++) ctx.lineTo(p[q][0], p[q][1]); ctx.closePath(); ctx.fill();
+      }
+      // stanghette
+      ctx.save();
+      ctx.setLineDash([4 / z + 2, 3 / z + 2]);
+      ctx.strokeStyle = COL_BAR; ctx.lineWidth = lw; ctx.globalAlpha = 0.85;
+      (st.barSegs || []).forEach(b => { ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(b[2], b[3]); ctx.stroke(); });
+      ctx.restore();
+      ctx.fillStyle = '#586473';
+      ctx.font = '500 ' + fs + 'px "IBM Plex Mono", ui-monospace, monospace';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('RIGO ' + (i + 1), st.x0 + 2, st.lines[0][0] - 1.1 * st.sp);
+    });
+
+    const vis = OMR.visibleNotes(res, s);
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'center';
+    for (const n of vis) {
+      const st = res.staves[n.staff];
+      const playing = state.playIds.has(n.id), sel = state.sel === n.id;
+      const pad = 0.12 * st.sp;
+      const x = n.x0 - pad, y = n.y0 - pad, w = n.x1 - n.x0 + 1 + 2 * pad, h = n.y1 - n.y0 + 1 + 2 * pad;
+      if (playing) { ctx.fillStyle = 'rgba(217,72,15,0.5)'; ctx.fillRect(x, y, w, h); }
+      else if (sel) { ctx.fillStyle = 'rgba(217,72,15,0.16)'; ctx.fillRect(x, y, w, h); }
+      ctx.save();
+      if (n.conf < 1) ctx.setLineDash([3 / z + 1.5, 2 / z + 1.5]);
+      ctx.strokeStyle = (sel || playing) ? COL_MARK : COL_ACCENT;
+      ctx.lineWidth = sel ? lw * 1.9 : lw;
+      ctx.strokeRect(x, y, w, h);
+      ctx.restore();
+      const p = OMR.pitchInfo(n, s);
+      ctx.font = '500 ' + fs + 'px "IBM Plex Mono", ui-monospace, monospace';
+      const ty = y - 3 / z - 1;
+      ctx.lineWidth = 3.2 / z + 1; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineJoin = 'round';
+      ctx.strokeText(p.name, n.cx, ty);
+      ctx.fillStyle = (sel || playing) ? COL_MARK : COL_ACCENT;
+      ctx.fillText(p.name, n.cx, ty);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  /* ---------- lista, editor, export ---------- */
+  function refresh() {
+    const res = state.res;
+    if (!res) return;
+    const s = S();
+    drawOverlay();
+    if (!el.staffClefs.dataset.n || +el.staffClefs.dataset.n !== res.staves.length) { renderStaffClefs(); el.staffClefs.dataset.n = res.staves.length; }
+    renderList(s);
+    renderEditor(s);
+    renderExport(s);
+    const vis = OMR.visibleNotes(res, s);
+    const meas = OMR.measuresOf(res, s);
+    const deleted = res.notes.filter(n => n.deleted).length;
+    el.restore.hidden = !deleted;
+    el.restore.textContent = 'Ripristina ' + deleted + (deleted === 1 ? ' nota eliminata' : ' note eliminate');
+    if (!res.staves.length) {
+      setStatus(res.warnings[0] || 'Nessun rigo trovato.', 'warn');
+      el.summary.textContent = '';
+      return;
+    }
+    const tilt = Math.abs(res.angle * 180 / Math.PI);
+    const low = vis.filter(n => n.conf < 1).length;
+    el.summary.textContent = res.staves.length + (res.staves.length === 1 ? ' rigo' : ' righi') + ' · ' + vis.length + (vis.length === 1 ? ' nota' : ' note') + ' · ' + meas.length + (meas.length === 1 ? ' battuta' : ' battute');
+    let msg = 'Analisi completata in ' + res.ms + ' ms.';
+    if (tilt >= 0.1) msg += ' Immagine raddrizzata di ' + fmt1(tilt) + '°.';
+    if (low) msg += ' ' + low + (low === 1 ? ' nota incerta (riquadro tratteggiato)' : ' note incerte (riquadri tratteggiati)') + ': controllale.';
+    setStatus(msg, low ? 'warn' : 'ok');
+  }
+
+  const CLEF_OPTS = [['', 'Come sopra'], ['treble', 'Sol'], ['bass', 'Fa'], ['alto', 'Do contralto'], ['tenor', 'Do tenore']];
+  function renderStaffClefs() {
+    const n = state.res ? state.res.staves.length : 0;
+    if (state.clefs.length !== n) state.clefs = new Array(n).fill('');
+    el.staffClefs.textContent = '';
+    el.staffClefs.hidden = n < 2;
+    if (n < 2) return;
+    state.res.staves.forEach((st, i) => {
+      const box = document.createElement('div'); box.className = 'field';
+      const lab = document.createElement('label'); lab.className = 'lab'; lab.htmlFor = 'sc' + i; lab.textContent = 'Chiave del rigo ' + (i + 1);
+      const sel = document.createElement('select'); sel.id = 'sc' + i;
+      CLEF_OPTS.forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+      sel.value = state.clefs[i] || '';
+      sel.addEventListener('change', () => { state.clefs[i] = sel.value; refresh(); });
+      box.append(lab, sel); el.staffClefs.appendChild(box);
+    });
+  }
+
+  function renderList(s) {
+    const res = state.res;
+    el.list.textContent = '';
+    const meas = OMR.measuresOf(res, s);
+    if (!meas.length) {
+      const p = document.createElement('p'); p.className = 'empty';
+      p.textContent = 'Nessuna nota riconosciuta. Prova a ridurre «Salta a sinistra» o a cambiare la sensibilità.';
+      el.list.appendChild(p); return;
+    }
+    meas.forEach((m, i) => {
+      const box = document.createElement('div'); box.className = 'measure';
+      const no = document.createElement('span'); no.className = 'mno'; no.textContent = i + 1; no.title = 'Battuta ' + (i + 1) + ', rigo ' + (m.staff + 1);
+      box.appendChild(no);
+      m.groups.forEach(g => g.notes.forEach(n => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (n.conf < 1 ? ' low' : '');
+        b.dataset.id = n.id;
+        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = OMR.pitchInfo(n, s).name;
+        const du = document.createElement('span'); du.className = 'du'; du.textContent = FRAC[n.type] + (n.dots ? '.' : '');
+        b.append(nm, du);
+        b.addEventListener('click', () => select(n.id, true));
+        box.appendChild(b);
+      }));
+      el.list.appendChild(box);
+    });
+    updateChipStates();
+  }
+
+  function updateChipStates() {
+    el.list.querySelectorAll('.chip').forEach(b => {
+      const id = +b.dataset.id;
+      b.setAttribute('aria-pressed', state.sel === id ? 'true' : 'false');
+      b.classList.toggle('playing', state.playIds.has(id));
+    });
+  }
+
+  function select(id, scroll) {
+    state.sel = (state.sel === id) ? null : id;
+    const s = S();
+    drawOverlay(); updateChipStates(); renderEditor(s);
+    if (scroll && state.sel != null) scrollToNote(state.res.notes[id]);
+  }
+
+  function scrollToNote(n) {
+    const z = state.zoom, st = el.stage;
+    const x = n.cx * z, y = n.cy * z;
+    if (x < st.scrollLeft + 24 || x > st.scrollLeft + st.clientWidth - 24) st.scrollLeft = Math.max(0, x - st.clientWidth / 3);
+    if (y < st.scrollTop + 24 || y > st.scrollTop + st.clientHeight - 24) st.scrollTop = Math.max(0, y - st.clientHeight / 2);
+  }
+
+  function renderEditor(s) {
+    const n = state.sel == null ? null : state.res.notes[state.sel];
+    if (!n || n.deleted) { el.editor.hidden = true; return; }
+    el.editor.hidden = false;
+    const p = OMR.pitchInfo(n, s);
+    el.edName.textContent = p.name;
+    const m = OMR.measuresOf(state.res, s);
+    let mi = 0;
+    m.forEach((mm, i) => { if (mm.groups.some(g => g.gid === n.gid)) mi = i + 1; });
+    el.edMeta.textContent = 'rigo ' + (n.staff + 1) + ' · battuta ' + mi + ' · ' + FRAC[n.type] + (n.dots ? ' puntata' : '');
+    el.edType.value = n.type;
+    el.edDot.checked = !!n.dots;
+    el.edAcc.querySelectorAll('button').forEach(b => {
+      const v = b.dataset.acc === 'auto' ? null : b.dataset.acc;
+      b.setAttribute('aria-pressed', (n.acc === v) ? 'true' : 'false');
+    });
+  }
+
+  function renderExport(s) {
+    const res = state.res;
+    el.tabXml.setAttribute('aria-selected', state.tab === 'xml' ? 'true' : 'false');
+    el.tabNames.setAttribute('aria-selected', state.tab === 'names' ? 'true' : 'false');
+    el.out.value = state.tab === 'xml' ? OMR.buildMusicXML(res, s) : OMR.noteText(res, s);
+  }
+
+  const selNote = () => state.sel == null ? null : state.res.notes[state.sel];
+  function groupOf(n) { return state.res.notes.filter(m => m.gid === n.gid); }
+
+  el.edType.addEventListener('change', () => { const n = selNote(); if (!n) return; groupOf(n).forEach(m => { m.type = el.edType.value; }); refresh(); });
+  el.edDot.addEventListener('change', () => { const n = selNote(); if (!n) return; groupOf(n).forEach(m => { m.dots = el.edDot.checked ? 1 : 0; }); refresh(); });
+  el.edUp.addEventListener('click', () => { const n = selNote(); if (n) { n.pos += 1; refresh(); } });
+  el.edDown.addEventListener('click', () => { const n = selNote(); if (n) { n.pos -= 1; refresh(); } });
+  el.edDel.addEventListener('click', () => { const n = selNote(); if (n) { n.deleted = true; state.sel = null; refresh(); } });
+  el.edAcc.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const n = selNote(); if (!n) return;
+    n.acc = b.dataset.acc === 'auto' ? null : b.dataset.acc;
+    refresh();
+  });
+  el.restore.addEventListener('click', () => { state.res.notes.forEach(n => { n.deleted = false; }); refresh(); });
+
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    const n = selNote(); if (!n || !state.res) return;
+    if (e.key === 'ArrowUp') { n.pos += 1; refresh(); e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { n.pos -= 1; refresh(); e.preventDefault(); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { n.deleted = true; state.sel = null; refresh(); e.preventDefault(); }
+  });
+
+  /* ---------- clic sull'immagine ---------- */
+  el.cv.addEventListener('click', e => {
+    const res = state.res; if (!res) return;
+    const r = el.cv.getBoundingClientRect();
+    const x = (e.clientX - r.left) * el.cv.width / r.width, y = (e.clientY - r.top) * el.cv.height / r.height;
+    let best = null, bd = 1e9;
+    for (const n of OMR.visibleNotes(res, S())) {
+      const sp = res.staves[n.staff].sp, m = 0.45 * sp;
+      if (x < n.x0 - m || x > n.x1 + m || y < n.y0 - m || y > n.y1 + m) continue;
+      const d = Math.hypot(x - n.cx, y - n.cy);
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (best) { state.sel = best.id; drawOverlay(); updateChipStates(); renderEditor(S());
+      const chip = el.list.querySelector('.chip[data-id="' + best.id + '"]'); if (chip && chip.scrollIntoView) chip.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    else { state.sel = null; drawOverlay(); updateChipStates(); renderEditor(S()); }
+  });
+
+  /* ---------- riproduzione ---------- */
+  let actx = null, nodes = [], raf = 0;
+  function stopPlay() {
+    nodes.forEach(o => { try { o.stop(); } catch (e) { /* già fermato */ } });
+    nodes = [];
+    cancelAnimationFrame(raf);
+    const was = state.playing;
+    state.playing = false; state.playIds = new Set();
+    el.play.textContent = 'Ascolta';
+    el.play.setAttribute('aria-pressed', 'false');
+    if (was && state.res) { drawOverlay(); updateChipStates(); }
+  }
+
+  function startPlay() {
+    if (!state.res) return;
+    const s = S();
+    const sched = OMR.buildSchedule(state.res, s);
+    if (!sched.length) { el.playInfo.textContent = 'Non ci sono note da riprodurre.'; return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { el.playInfo.textContent = 'Questo browser non supporta l\'audio Web.'; return; }
+    actx = actx || new AC();
+    if (actx.state === 'suspended') actx.resume();
+    const spb = 60 / s.bpm, t0 = actx.currentTime + 0.1;
+    const total = sched[sched.length - 1].t + sched[sched.length - 1].dur;
+    sched.forEach(ev => {
+      const start = t0 + ev.t * spb, dur = ev.dur * spb;
+      const vol = 0.22 / Math.sqrt(ev.midis.length);
+      ev.midis.forEach(mi => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = 440 * Math.pow(2, (mi - 69) / 12);
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.linearRampToValueAtTime(vol, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0008, start + Math.max(0.06, dur * 0.96));
+        o.connect(g); g.connect(actx.destination);
+        o.start(start); o.stop(start + dur + 0.05);
+        nodes.push(o);
+      });
+    });
+    state.playing = true;
+    el.play.textContent = 'Ferma';
+    el.play.setAttribute('aria-pressed', 'true');
+    let last = -1;
+    const tick = () => {
+      if (!state.playing) return;
+      const now = (actx.currentTime - t0) / spb;
+      if (now >= total) { stopPlay(); el.playInfo.textContent = 'Riproduzione terminata.'; return; }
+      let idx = -1;
+      for (let i = 0; i < sched.length; i++) if (now >= sched[i].t && now < sched[i].t + sched[i].dur) { idx = i; break; }
+      if (idx !== last) {
+        last = idx;
+        state.playIds = new Set(idx >= 0 ? sched[idx].ids : []);
+        drawOverlay(); updateChipStates();
+        if (idx >= 0) scrollToNote(state.res.notes[sched[idx].ids[0]]);
+        el.playInfo.textContent = idx >= 0 ? 'Nota ' + (idx + 1) + ' di ' + sched.length : '';
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  }
+  el.play.addEventListener('click', () => { if (state.playing) { stopPlay(); el.playInfo.textContent = ''; } else startPlay(); });
+
+  /* ---------- export ---------- */
+  el.tabXml.addEventListener('click', () => { state.tab = 'xml'; if (state.res) renderExport(S()); });
+  el.tabNames.addEventListener('click', () => { state.tab = 'names'; if (state.res) renderExport(S()); });
+  el.copy.addEventListener('click', async () => {
+    const txt = el.out.value;
+    let ok = false;
+    try { await navigator.clipboard.writeText(txt); ok = true; } catch (e) { /* ripiego sotto */ }
+    if (!ok) { el.out.focus(); el.out.select(); try { ok = document.execCommand('copy'); } catch (e) { ok = false; } }
+    el.copy.textContent = ok ? 'Copiato' : 'Seleziona e copia a mano';
+    setTimeout(() => { el.copy.textContent = 'Copia il testo'; }, 1800);
+  });
+
+  /* ---------- MIDI ---------- */
+  function crc32(u8) {
+    let c, crc = 0xffffffff;
+    for (let n = 0; n < u8.length; n++) {
+      c = (crc ^ u8[n]) & 0xff;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      crc = (crc >>> 8) ^ c;
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+  // ZIP senza compressione con un solo file (la pagina pubblicata non puo' salvare direttamente un .mid)
+  function zipStore(name, data) {
+    const nb = new TextEncoder().encode(name), crc = crc32(data), size = data.length;
+    const dosDate = ((2026 - 1980) << 9) | (1 << 5) | 1;
+    const u16 = v => [v & 255, (v >> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+    const local = [...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(dosDate), ...u32(crc), ...u32(size), ...u32(size), ...u16(nb.length), ...u16(0), ...nb];
+    const central = [...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(dosDate), ...u32(crc), ...u32(size), ...u32(size), ...u16(nb.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(0), ...nb];
+    const cdOff = local.length + size;
+    const end = [...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(1), ...u16(1), ...u32(central.length), ...u32(cdOff), ...u16(0)];
+    const out = new Uint8Array(local.length + size + central.length + end.length);
+    out.set(local, 0); out.set(data, local.length); out.set(central, local.length + size); out.set(end, local.length + size + central.length);
+    return out;
+  }
+  el.dlMidi.addEventListener('click', async () => {
+    if (!state.res) return;
+    const s = S();
+    if (!OMR.visibleNotes(state.res, s).length) { el.midiInfo.textContent = 'Non ci sono note da esportare.'; return; }
+    const bytes = OMR.buildMidi(state.res, s);
+    const base = (state.title || 'spartito').replace(/\.[^.]+$/, '').replace(/[^\w\- àèéìòù]+/gi, '').trim() || 'spartito';
+    let dl = null;
+    try { dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) { dl = null; }
+    if (dl) {
+      try {
+        await dl.save({ filename: base + '-midi.zip', data: zipStore(base + '.mid', bytes) });
+        el.midiInfo.textContent = 'Salvato. Apri lo ZIP: dentro c\'è il file ' + base + '.mid.';
+      } catch (e) {
+        el.midiInfo.textContent = e && e.code === 'declined' ? 'Salvataggio annullato.' : 'Qui non riesco a salvare il file. Apri la pagina come file locale per scaricare il .mid.';
+      }
+      return;
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+      const a = document.createElement('a'); a.href = url; a.download = base + '.mid';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      el.midiInfo.textContent = 'Scaricato ' + base + '.mid (' + bytes.length + ' byte).';
+    } catch (e) { el.midiInfo.textContent = 'Il browser ha bloccato il download.'; }
+  });
+
+  /* ---------- eventi dei controlli ---------- */
+  el.btnPick.addEventListener('click', () => el.file.click());
+  el.btnSample.addEventListener('click', loadSample);
+  el.file.addEventListener('change', () => { if (el.file.files[0]) loadFile(el.file.files[0]); el.file.value = ''; });
+
+  ['dragenter', 'dragover'].forEach(ev => el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(ev => el.drop.addEventListener(ev, e => { e.preventDefault(); el.drop.classList.remove('over'); }));
+  el.drop.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+  const soft = () => { if (state.res) { syncOutputs(); refresh(); } else syncOutputs(); };
+  el.clef.addEventListener('change', soft);
+  el.key.addEventListener('change', () => { autoSkip(); soft(); });
+  el.meter.addEventListener('change', soft);
+  el.bpm.addEventListener('input', syncOutputs);
+  el.skip.addEventListener('input', () => { state.skipTouched = true; soft(); });
+  el.thr.addEventListener('input', syncOutputs);
+  el.thr.addEventListener('change', run);
+  el.deskew.addEventListener('change', run);
+  el.zoom.addEventListener('input', () => setZoom(+el.zoom.value / 100, true));
+  el.fit.addEventListener('click', () => fitZoom(false));
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (!state.zoomTouched) fitZoom(true); }, 150); });
+
+  syncOutputs();
+  loadSample();
+})();
+</script>
+
+</body>
+</html>
