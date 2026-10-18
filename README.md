@@ -1,4 +1,4 @@
-# Staffscan
+# NoteLens
 
 **Optical music recognition for sheet music, in pure JavaScript.**
 
@@ -12,7 +12,7 @@ Load a photo or scan of a staff, and Staffscan finds the staves, reads the notes
 - **Key and time signature.** Set manually. They drive note names, measure grouping and the exports.
 - **Manual correction.** Every detected note can be moved, deleted or added. Uncertain notes are flagged.
 - **Playback** with the Web Audio API, at an adjustable tempo.
-- **Export** to MusicXML (opens in MuseScore, Finale, Dorico and others), to MIDI, and to a plain list of note names.
+- **Export** to MusicXML, to MIDI, and to a plain list of note names.
 
 ## Quick start
 
